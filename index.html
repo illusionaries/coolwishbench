@@ -5,13 +5,27 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --text-color: #e8e8e8;
+      --bg-color: #161616;
+      color: var(--text-color);
+      background-color: var(--bg-color);
+    }
+
+    body {
+      width: 100%;
+      margin: 0;
+    }
+
     #app {
-      margin: 24pt 12pt;
+      padding: 24pt 12pt;
+      margin: 0 auto;
+      max-width: 800px;
     }
 
     a,
     a:visited {
-      color: #af7ded;
+      color: #b98bf0;
       text-underline-offset: 0.2em;
       text-decoration-thickness: 2px;
     }
@@ -21,41 +35,56 @@
       padding: 1em;
       background: linear-gradient(
         45deg,
-        rgba(200, 203, 255, 0.45),
-        rgba(221, 185, 255, 0.478)
+        rgb(27, 30, 74),
+        rgb(60, 26, 94)
       );
+      box-shadow: rgba(101, 45, 165, 0.686) 0em 0em 10em -10px;
     }
 
     .hover-to-reveal {
-      opacity: 0;
-      transition: opacity 150ms ease-out;
+      background-color: currentColor;
+      transition: background-color 150ms ease-out;
     }
 
-    .hover-reveal-container:has(.hover-revealer:hover) {
-      .hover-to-reveal {
-        opacity: 1;
-      }
+    .hover-reveal-container:has(.hover-revealer:hover) > .hover-to-reveal,
+    .hover-to-reveal:hover {
+      background-color: transparent;
+    }
+
+    rt {
+      margin-bottom: 0.4em;
+    }
+
+    h1 {
+      font-size: 3em;
+    }
+
+    li {
+      padding-left: 0;
     }
   </style>
   <body>
     <div id="app">
-      <h1>CoolWishBench</h1>
+      <h1>
+        <ruby> 😎<rt>Cool</rt>🎋<rt>Wish</rt>🏇<rt>Bench</rt></ruby>
+      </h1>
       <blockquote>
         搞点炫酷的，随便你搞什么 <br />
         <div style="text-align: end">—— 我</div>
       </blockquote>
 
-      <ul>
+      <p>有请各位选手入场：</p>
+      <ul style="margin-top: -0.5em">
         <li>
           <div class="hover-reveal-container">
             <a class="hover-revealer" href="./qwen4.html">星尘引擎</a>
-            <span class="hover-to-reveal">by Qwen 4 Max Preview</span>
+            by <span class="hover-to-reveal">Qwen 4 Max Preview</span>
           </div>
         </li>
         <li>
           <div class="hover-reveal-container">
             <a class="hover-revealer" href="./k31.html">星渊 · SINGULARITY</a>
-            <span class="hover-to-reveal">by Kimi K3.1 Pro (High)</span>
+            by <span class="hover-to-reveal">Kimi K3.1 Pro (High)</span>
           </div>
         </li>
         <li>
@@ -63,9 +92,8 @@
             <a class="hover-revealer" href="./v41f/dist/starfall.html"
               >STARFALL · 星坠</a
             >
-            <span class="hover-to-reveal"
-              >by DeepSeek V4.1 Flash 1017 (High)</span
-            >
+            by
+            <span class="hover-to-reveal">DeepSeek V4.1 Flash 1017 (High)</span>
           </div>
         </li>
       </ul>
