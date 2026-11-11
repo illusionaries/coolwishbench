@@ -1,0 +1,15 @@
+{
+  "name": "starfall",
+  "version": "1.0.0",
+  "private": true,
+  "description": "STARFALL · 星坠 — zero-dependency realtime generative visual engine (WebGL2 + procedural ambient audio)",
+  "type": "module",
+  "scripts": {
+    "serve": "node serve.mjs",
+    "build": "node build.mjs",
+    "shot": "node verify/shot.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,74 @@
+<html>
+  <style>
+    * {
+      font-family: -apple-system, system-ui, sans-serif;
+      box-sizing: border-box;
+    }
+
+    #app {
+      margin: 24pt 12pt;
+    }
+
+    a,
+    a:visited {
+      color: #af7ded;
+      text-underline-offset: 0.2em;
+      text-decoration-thickness: 2px;
+    }
+
+    blockquote {
+      margin: 0;
+      padding: 1em;
+      background: linear-gradient(
+        45deg,
+        rgba(200, 203, 255, 0.45),
+        rgba(221, 185, 255, 0.478)
+      );
+    }
+
+    .hover-to-reveal {
+      opacity: 0;
+      transition: opacity 150ms ease-out;
+    }
+
+    .hover-reveal-container:has(.hover-revealer:hover) {
+      .hover-to-reveal {
+        opacity: 1;
+      }
+    }
+  </style>
+  <body>
+    <div id="app">
+      <h1>CoolWishBench</h1>
+      <blockquote>
+        搞点炫酷的，随便你搞什么 <br />
+        <div style="text-align: end">—— 我</div>
+      </blockquote>
+
+      <ul>
+        <li>
+          <div class="hover-reveal-container">
+            <a class="hover-revealer" href="./qwen4.html">星尘引擎</a>
+            <span class="hover-to-reveal">by Qwen 4 Max Preview</span>
+          </div>
+        </li>
+        <li>
+          <div class="hover-reveal-container">
+            <a class="hover-revealer" href="./k31.html">星渊 · SINGULARITY</a>
+            <span class="hover-to-reveal">by Kimi K3.1 Pro (High)</span>
+          </div>
+        </li>
+        <li>
+          <div class="hover-reveal-container">
+            <a class="hover-revealer" href="./v41f/dist/starfall.html"
+              >STARFALL · 星坠</a
+            >
+            <span class="hover-to-reveal"
+              >by DeepSeek V4.1 Flash 1017 (High)</span
+            >
+          </div>
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

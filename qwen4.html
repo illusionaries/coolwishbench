@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>星尘引擎 · STARDUST</title>
+<style>
+  :root{
+    --cyan:#6ee7ff; --magenta:#ff5edb; --ink:#eaf6ff;
+    --glass:rgba(10,16,32,.55); --line:rgba(120,200,255,.18);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#030409}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    color:var(--ink); user-select:none;-webkit-user-select:none;
+  }
+  #stage{position:fixed;inset:0;touch-action:none;display:block}
+
+  /* ---------- HUD ---------- */
+  .hud{position:fixed;z-index:5;pointer-events:none}
+  #brand{
+    top:calc(14px + env(safe-area-inset-top));left:18px;
+    font-size:12px;letter-spacing:.35em;font-weight:700;color:var(--cyan);
+    text-shadow:0 0 12px rgba(110,231,255,.6);
+  }
+  #brand small{display:block;margin-top:5px;font-size:10px;letter-spacing:.2em;font-weight:400;color:rgba(234,246,255,.45)}
+  #stats{
+    top:calc(14px + env(safe-area-inset-top));right:18px;text-align:right;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;line-height:1.7;
+    color:rgba(234,246,255,.5);letter-spacing:.08em;
+  }
+  #hint{
+    top:calc(52px + env(safe-area-inset-top));right:18px;text-align:right;
+    font-size:10px;color:rgba(234,246,255,.35);letter-spacing:.12em;line-height:1.8;
+  }
+  @media (max-width:640px){ #hint{display:none} }
+
+  /* ---------- bottom panel ---------- */
+  #panel{
+    position:fixed;z-index:6;left:0;right:0;bottom:0;
+    padding:0 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;gap:12px;
+    background:linear-gradient(to top,rgba(3,4,9,.85),transparent);
+  }
+  #shapeTitle{display:flex;align-items:baseline;gap:12px;padding-left:2px}
+  #shapeName{
+    font-size:34px;font-weight:800;letter-spacing:.12em;line-height:1.1;
+    background:linear-gradient(100deg,var(--cyan),#b18cff 55%,var(--magenta));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 14px rgba(140,160,255,.35));
+  }
+  #shapeName.glitch{animation:glitch .55s steps(2,end)}
+  @keyframes glitch{
+    0%{transform:translate(0)}
+    20%{transform:translate(-4px,2px) skewX(-8deg);filter:drop-shadow(3px 0 0 rgba(255,94,219,.8)) drop-shadow(-3px 0 0 rgba(110,231,255,.8))}
+    40%{transform:translate(4px,-2px) skewX(6deg)}
+    60%{transform:translate(-2px,1px);filter:drop-shadow(-4px 0 0 rgba(255,94,219,.8)) drop-shadow(4px 0 0 rgba(110,231,255,.8))}
+    100%{transform:translate(0)}
+  }
+  #shapeEn{font-size:11px;letter-spacing:.4em;color:rgba(234,246,255,.45);font-weight:600}
+  #progress{height:2px;background:rgba(120,200,255,.12);border-radius:2px;overflow:hidden;margin:0 2px}
+  #progressFill{
+    height:100%;width:100%;transform-origin:left;transform:scaleX(0);
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    box-shadow:0 0 8px rgba(110,231,255,.7);
+  }
+  #chips{display:flex;gap:8px;overflow-x:auto;padding:2px;scrollbar-width:none}
+  #chips::-webkit-scrollbar{display:none}
+  .chip{
+    pointer-events:auto;flex:0 0 auto;cursor:pointer;
+    padding:8px 14px;border-radius:999px;font-size:12px;letter-spacing:.1em;
+    color:rgba(234,246,255,.75);background:var(--glass);border:1px solid var(--line);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    transition:all .25s;
+  }
+  .chip:hover{border-color:rgba(120,200,255,.5)}
+  .chip.on{
+    color:#04101c;font-weight:700;border-color:transparent;
+    background:linear-gradient(100deg,var(--cyan),#b18cff);
+    box-shadow:0 0 18px rgba(110,231,255,.45);
+  }
+  #controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{
+    pointer-events:auto;cursor:pointer;padding:8px 14px;border-radius:10px;
+    font-size:12px;letter-spacing:.1em;color:var(--ink);
+    background:var(--glass);border:1px solid var(--line);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:all .2s;
+  }
+  .btn:hover{border-color:rgba(120,200,255,.5)}
+  .btn.on{color:var(--cyan);border-color:rgba(110,231,255,.6);box-shadow:0 0 12px rgba(110,231,255,.25) inset}
+  #boom{color:#ffd7f4;border-color:rgba(255,94,219,.4)}
+  #boom:hover{box-shadow:0 0 16px rgba(255,94,219,.35);border-color:var(--magenta)}
+  #settings{
+    pointer-events:auto;display:none;gap:18px;flex-wrap:wrap;align-items:center;
+    padding:12px 14px;border-radius:12px;background:var(--glass);border:1px solid var(--line);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    font-size:11px;letter-spacing:.08em;color:rgba(234,246,255,.7);
+  }
+  #settings.open{display:flex}
+  #settings label{display:flex;align-items:center;gap:10px}
+  #settings input[type=range]{width:130px;accent-color:#6ee7ff}
+  #settings output{font-family:ui-monospace,monospace;color:var(--cyan);min-width:44px;text-align:right}
+
+  /* ---------- intro ---------- */
+  #intro{
+    position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:16px;pointer-events:none;
+    background:radial-gradient(ellipse at center,rgba(3,4,9,.2),rgba(3,4,9,.9));
+    animation:introOut 1s ease 2.2s forwards;
+  }
+  #intro h1{
+    font-size:clamp(38px,9vw,72px);font-weight:900;letter-spacing:.3em;text-indent:.3em;
+    background:linear-gradient(100deg,var(--cyan),#b18cff 50%,var(--magenta));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 24px rgba(140,160,255,.5));
+    animation:introIn 1.4s cubic-bezier(.2,.9,.2,1) both;
+  }
+  #intro p{font-size:11px;letter-spacing:.6em;text-indent:.6em;color:rgba(234,246,255,.55);animation:introIn 1.4s .25s cubic-bezier(.2,.9,.2,1) both}
+  @keyframes introIn{from{opacity:0;transform:translateY(18px);filter:blur(8px)}to{opacity:1;transform:none;filter:blur(0)}}
+  @keyframes introOut{to{opacity:0;visibility:hidden}}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="hud" id="brand">STARDUST<small>星尘引擎 · PARTICLE ENGINE</small></div>
+<div class="hud" id="stats">FPS --<br>PARTICLES --</div>
+<div class="hud" id="hint">拖动 旋转<br>滚轮 / 双指 缩放<br>双击 超新星<br>← → 切换形态</div>
+
+<div id="panel">
+  <div id="shapeTitle"><span id="shapeName">星系</span><span id="shapeEn">GALAXY</span></div>
+  <div id="progress"><div id="progressFill"></div></div>
+  <div id="chips"></div>
+  <div id="settings">
+    <label>粒子数量 <input id="countRange" type="range" min="2000" max="16000" step="1000"><output id="countOut"></output></label>
+    <label>拖尾长度 <input id="trailRange" type="range" min="0" max="100" step="1"><output id="trailOut"></output></label>
+  </div>
+  <div id="controls">
+    <button class="btn on" id="autoBtn">自动巡航</button>
+    <button class="btn" id="boom">超新星爆发</button>
+    <button class="btn" id="gear">设置</button>
+  </div>
+</div>
+
+<div id="intro"><h1>星尘引擎</h1><p>STARDUST ENGINE</p></div>
+
+<script>
+(() => {
+'use strict';
+const TAU = Math.PI * 2;
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d', { alpha: false });
+const $ = id => document.getElementById(id);
+
+/* ================= shapes ================= */
+const rnd = Math.random;
+const gauss = () => (rnd() + rnd() + rnd() - 1.5) * 0.8;
+
+function shapeGalaxy(n) {
+  const a = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const arm = i % 4;
+    const t = Math.pow(rnd(), 0.65);
+    const r = t * 1.45;
+    const ang = arm * TAU / 4 + t * 4.6 + gauss() * 0.22 * (1.1 - t);
+    const o = i * 4;
+    a[o]     = Math.cos(ang) * r + gauss() * 0.03;
+    a[o + 1] = gauss() * 0.10 * (1 - t * 0.75);
+    a[o + 2] = Math.sin(ang) * r + gauss() * 0.03;
+    a[o + 3] = t < 0.14 ? 42 + rnd() * 20 : 195 + t * 115 + gauss() * 12;
+  }
+  return a;
+}
+function shapeSphere(n) {
+  const a = new Float32Array(n * 4);
+  const ga = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2;
+    const rad = Math.sqrt(Math.max(0, 1 - y * y));
+    const th = ga * i;
+    const R = 1.05 + gauss() * 0.015;
+    const o = i * 4;
+    a[o] = Math.cos(th) * rad * R;
+    a[o + 1] = y * R;
+    a[o + 2] = Math.sin(th) * rad * R;
+    a[o + 3] = 165 + y * 75 + gauss() * 10;
+  }
+  return a;
+}
+function shapeKnot(n) {
+  const a = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const t = rnd() * TAU;
+    const r = 2 + Math.cos(3 * t);
+    const o = i * 4;
+    a[o]     = r * Math.cos(2 * t) * 0.42 + gauss() * 0.07;
+    a[o + 1] = Math.sin(3 * t) * 0.42 + gauss() * 0.07;
+    a[o + 2] = r * Math.sin(2 * t) * 0.42 + gauss() * 0.07;
+    a[o + 3] = (t / TAU) * 360;
+  }
+  return a;
+}
+function shapeHeart(n) {
+  const a = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++) {
+    const t = rnd() * TAU;
+    const hx = 16 * Math.pow(Math.sin(t), 3);
+    const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    const fill = Math.pow(rnd(), 0.3);
+    const x = hx * 0.082 * fill;
+    const y = (hy * 0.082 + 0.12) * fill;
+    const o = i * 4;
+    a[o] = x + gauss() * 0.015;
+    a[o + 1] = y + gauss() * 0.015;
+    a[o + 2] = gauss() * 0.34 * (1 - fill * 0.65);
+    a[o + 3] = 322 + gauss() * 16 + (rnd() < 0.05 ? 60 : 0);
+  }
+  return a;
+}
+function shapeDNA(n) {
+  const a = new Float32Array(n * 4);
+  const H = 2.5, R = 0.52, turns = 1.15;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    if (rnd() < 0.26) {                       // rungs
+      const step = Math.floor(rnd() * 22);
+      const v = step / 21;
+      const ang = v * turns * TAU;
+      const s = rnd() * 2 - 1;
+      a[o] = Math.cos(ang) * R * s;
+      a[o + 1] = (v - 0.5) * H;
+      a[o + 2] = Math.sin(ang) * R * s;
+      a[o + 3] = 48 + gauss() * 10;
+    } else {                                  // strands
+      const v = rnd();
+      const strand = i % 2;
+      const ang = v * turns * TAU + strand * Math.PI;
+      a[o] = Math.cos(ang) * R + gauss() * 0.035;
+      a[o + 1] = (v - 0.5) * H + gauss() * 0.02;
+      a[o + 2] = Math.sin(ang) * R + gauss() * 0.035;
+      a[o + 3] = strand ? 300 + gauss() * 12 : 185 + gauss() * 12;
+    }
+  }
+  return a;
+}
+function shapeSaturn(n) {
+  const a = new Float32Array(n * 4);
+  const tilt = 0.42, ct = Math.cos(tilt), st = Math.sin(tilt);
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    let x, y, z, h;
+    if (rnd() < 0.52) {                       // planet
+      const u = rnd() * 2 - 1, ph = rnd() * TAU;
+      const rad = Math.sqrt(1 - u * u), R = 0.72;
+      x = Math.cos(ph) * rad * R; y = u * R; z = Math.sin(ph) * rad * R;
+      h = 32 + Math.sin(u * 9) * 12 + gauss() * 6;
+    } else {                                  // rings
+      let rr = 1.02 + rnd() * 0.72;
+      if (rr > 1.32 && rr < 1.40) rr += 0.1;  // Cassini gap
+      const ph = rnd() * TAU;
+      x = Math.cos(ph) * rr; y = gauss() * 0.012; z = Math.sin(ph) * rr;
+      h = 198 + gauss() * 14;
+    }
+    a[o] = x;
+    a[o + 1] = y * ct - z * st;
+    a[o + 2] = y * st + z * ct;
+    a[o + 3] = h;
+  }
+  return a;
+}
+function shapeText(n) {
+  const cw = 360, ch = 170;
+  const off = document.createElement('canvas');
+  off.width = cw; off.height = ch;
+  const c = off.getContext('2d');
+  c.fillStyle = '#fff';
+  c.font = '900 128px ui-sans-serif,system-ui,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText('星尘', cw / 2, ch / 2 + 8);
+  const img = c.getImageData(0, 0, cw, ch).data;
+  const pts = [];
+  for (let y = 0; y < ch; y += 2)
+    for (let x = 0; x < cw; x += 2)
+      if (img[(y * cw + x) * 4 + 3] > 120) pts.push(x, y);
+  const a = new Float32Array(n * 4);
+  const m = pts.length / 2;
+  const sc = 2.7 / cw;
+  for (let i = 0; i < n; i++) {
+    const o = i * 4;
+    if (!m) {                                 // font fallback: ring
+      const ph = rnd() * TAU;
+      a[o] = Math.cos(ph); a[o + 1] = gauss() * 0.1; a[o + 2] = Math.sin(ph);
+      a[o + 3] = 200; continue;
+    }
+    const k = (i % m) * 2;
+    const px = pts[k] + rnd() * 2, py = pts[k + 1] + rnd() * 2;
+    a[o] = (px - cw / 2) * sc;
+    a[o + 1] = -(py - ch / 2) * sc;
+    a[o + 2] = gauss() * 0.07;
+    a[o + 3] = 190 + (px / cw) * 130 + gauss() * 8;
+  }
+  return a;
+}
+
+const SHAPES = [
+  { name: '星系',   en: 'GALAXY',     gen: shapeGalaxy },
+  { name: '星球',   en: 'SPHERE',     gen: shapeSphere },
+  { name: '纽结',   en: 'TORUS KNOT', gen: shapeKnot },
+  { name: '心跳',   en: 'HEARTBEAT',  gen: shapeHeart, flat: true },
+  { name: '基因',   en: 'DNA HELIX',  gen: shapeDNA },
+  { name: '土星',   en: 'SATURN',     gen: shapeSaturn },
+  { name: '星尘',   en: 'STARDUST',   gen: shapeText, flat: true },
+];
+
+/* ================= engine state ================= */
+const isSmall = Math.min(innerWidth, innerHeight) < 700;
+let N = isSmall ? 5000 : 9000;
+let px, py, pz, vx, vy, vz, tx, ty, tz, hue, phz, psz;
+let sx, sy, ss;                                // projected
+const HB = 48, LB = 6, BUCKETS = HB * LB;
+const bHead = new Int32Array(BUCKETS);
+let bNext;
+const palette = [];
+for (let h = 0; h < HB; h++)
+  for (let l = 0; l < LB; l++)
+    palette.push(`hsla(${h * (360 / HB)},95%,${48 + l * 7}%,${0.3 + l * 0.13})`);
+
+let W = 0, H = 0, DPR = 1, focal = 0;
+let bg = null;
+let camDist = 4.3, rotY = 0.6, rotX = -0.25, vRotY = 0, vRotX = 0;
+let shapeIdx = 0, auto = true, autoT = 0;
+const AUTO_PERIOD = 7;
+let fade = 0.22, flash = 0, shake = 0;
+let time = 0, last = performance.now(), fps = 60;
+let meteor = null, meteorTimer = 2;
+
+function allocParticles() {
+  px = new Float32Array(N); py = new Float32Array(N); pz = new Float32Array(N);
+  vx = new Float32Array(N); vy = new Float32Array(N); vz = new Float32Array(N);
+  tx = new Float32Array(N); ty = new Float32Array(N); tz = new Float32Array(N);
+  hue = new Float32Array(N); phz = new Float32Array(N); psz = new Float32Array(N);
+  sx = new Float32Array(N); sy = new Float32Array(N); ss = new Float32Array(N);
+  bNext = new Int32Array(N);
+  for (let i = 0; i < N; i++) {
+    const u = rnd() * 2 - 1, ph = rnd() * TAU, r = 2.2 + rnd() * 2.5;
+    const rad = Math.sqrt(1 - u * u);
+    px[i] = Math.cos(ph) * rad * r; py[i] = u * r; pz[i] = Math.sin(ph) * rad * r;
+    phz[i] = rnd() * TAU;
+    psz[i] = 0.006 + rnd() * 0.009;
+  }
+}
+
+function morph(idx, burstK) {
+  shapeIdx = ((idx % SHAPES.length) + SHAPES.length) % SHAPES.length;
+  const data = SHAPES[shapeIdx].gen(N);
+  for (let i = 0; i < N; i++) {
+    const j = ((i * 2654435761) >>> 0) % N;    // scatter assignment
+    const o = j * 4;
+    tx[i] = data[o]; ty[i] = data[o + 1]; tz[i] = data[o + 2];
+    hue[i] = ((data[o + 3] % 360) + 360) % 360;
+    if (burstK) {
+      const d = Math.sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) + 0.25;
+      const k = burstK * (0.5 + rnd()) / d;
+      vx[i] += px[i] * k + gauss() * burstK * 0.35;
+      vy[i] += py[i] * k + gauss() * burstK * 0.35;
+      vz[i] += pz[i] * k + gauss() * burstK * 0.35;
+    }
+  }
+  autoT = 0;
+  const s = SHAPES[shapeIdx];
+  const nameEl = $('shapeName');
+  nameEl.textContent = s.name;
+  $('shapeEn').textContent = s.en;
+  nameEl.classList.remove('glitch'); void nameEl.offsetWidth;
+  nameEl.classList.add('glitch');
+  document.querySelectorAll('.chip').forEach((c, i) => c.classList.toggle('on', i === shapeIdx));
+}
+
+function supernova() {
+  for (let i = 0; i < N; i++) {
+    const d = Math.sqrt(px[i] * px[i] + py[i] * py[i] + pz[i] * pz[i]) + 0.2;
+    const k = 0.34 * (0.6 + rnd()) / d;
+    vx[i] += px[i] * k + gauss() * 0.1;
+    vy[i] += py[i] * k + gauss() * 0.1;
+    vz[i] += pz[i] * k + gauss() * 0.1;
+  }
+  flash = 0.85; shake = 1;
+}
+
+/* ================= background ================= */
+function buildBackground() {
+  bg = document.createElement('canvas');
+  bg.width = W; bg.height = H;
+  const c = bg.getContext('2d');
+  c.fillStyle = '#030409'; c.fillRect(0, 0, W, H);
+  const neb = (x, y, r, col) => {
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+  };
+  const M = Math.max(W, H);
+  neb(W * 0.22, H * 0.28, M * 0.5, 'rgba(40,60,140,0.20)');
+  neb(W * 0.8, H * 0.72, M * 0.55, 'rgba(120,40,120,0.14)');
+  neb(W * 0.6, H * 0.15, M * 0.35, 'rgba(20,90,110,0.16)');
+  for (let i = 0; i < 220; i++) {
+    const a = 0.12 + rnd() * 0.5;
+    c.fillStyle = `rgba(220,235,255,${a})`;
+    const r = rnd() < 0.92 ? 1 : 1.8;
+    c.fillRect(rnd() * W, rnd() * H, r * DPR, r * DPR);
+  }
+}
+
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = canvas.width = Math.round(innerWidth * DPR);
+  H = canvas.height = Math.round(innerHeight * DPR);
+  canvas.style.width = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+  focal = H * 1.15;
+  buildBackground();
+  ctx.fillStyle = '#030409'; ctx.fillRect(0, 0, W, H);
+}
+
+/* ================= input ================= */
+const pointers = new Map();
+let dragging = false, lastTap = 0, pinchD = 0;
+let mouseX = -1e4, mouseY = -1e4, mouseOn = false;
+
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: 0 });
+  if (pointers.size === 1) {
+    dragging = true;
+    const now = performance.now();
+    if (now - lastTap < 320) supernova();
+    lastTap = now;
+  } else if (pointers.size === 2) {
+    const p = [...pointers.values()];
+    pinchD = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  mouseX = e.clientX * DPR; mouseY = e.clientY * DPR; mouseOn = true;
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.moved += Math.abs(dx) + Math.abs(dy);
+  p.x = e.clientX; p.y = e.clientY;
+  if (pointers.size === 1 && dragging) {
+    rotY += dx * 0.005; rotX += dy * 0.005;
+    rotX = Math.max(-1.4, Math.min(1.4, rotX));
+    vRotY = dx * 0.005; vRotX = dy * 0.005;
+  } else if (pointers.size === 2) {
+    const q = [...pointers.values()];
+    const d = Math.hypot(q[0].x - q[1].x, q[0].y - q[1].y);
+    if (pinchD > 0) camDist = Math.max(2.4, Math.min(8, camDist * pinchD / d));
+    pinchD = d;
+  }
+});
+const endPointer = e => {
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) dragging = false;
+  if (e.pointerType !== 'mouse') mouseOn = false;
+};
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointerleave', () => { mouseOn = false; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  camDist = Math.max(2.4, Math.min(8, camDist * Math.exp(e.deltaY * 0.001)));
+}, { passive: false });
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') morph(shapeIdx + 1, 0.05);
+  else if (e.key === 'ArrowLeft') morph(shapeIdx - 1, 0.05);
+  else if (e.key === ' ') { e.preventDefault(); toggleAuto(); }
+  else if (e.key.toLowerCase() === 'b') supernova();
+});
+
+/* ================= UI ================= */
+const chipsEl = $('chips');
+SHAPES.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = s.name;
+  b.addEventListener('click', () => morph(i, 0.05));
+  chipsEl.appendChild(b);
+});
+function toggleAuto() {
+  auto = !auto;
+  $('autoBtn').classList.toggle('on', auto);
+}
+$('autoBtn').addEventListener('click', toggleAuto);
+$('boom').addEventListener('click', supernova);
+$('gear').addEventListener('click', () => {
+  $('settings').classList.toggle('open');
+  $('gear').classList.toggle('on');
+});
+const countRange = $('countRange'), trailRange = $('trailRange');
+countRange.value = N;
+$('countOut').textContent = N;
+countRange.addEventListener('input', () => {
+  N = +countRange.value;
+  $('countOut').textContent = N;
+  allocParticles();
+  morph(shapeIdx, 0);
+});
+trailRange.value = 70;
+$('trailOut').textContent = 70;
+trailRange.addEventListener('input', () => {
+  const v = +trailRange.value;
+  $('trailOut').textContent = v;
+  fade = 0.5 - (v / 100) * 0.44;             // 0.5 (no trail) .. 0.06 (long trail)
+});
+fade = 0.5 - 0.7 * 0.44;
+
+/* ================= main loop ================= */
+let statTimer = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = (now - last) / 1000;
+  last = now;
+  if (dt > 0.05) dt = 0.05;
+  if (dt <= 0) return;
+  time += dt;
+  fps += (1 / dt - fps) * 0.06;
+
+  if (auto) {
+    autoT += dt;
+    if (autoT >= AUTO_PERIOD) morph(shapeIdx + 1, 0.05);
+  }
+  $('progressFill').style.transform = `scaleX(${auto ? autoT / AUTO_PERIOD : 0})`;
+
+  if (!dragging) {
+    if (SHAPES[shapeIdx].flat) {
+      // flat shapes face the camera with a gentle sway
+      vRotY *= 0.8; vRotX *= 0.8;
+      const targetY = Math.round(rotY / TAU) * TAU + Math.sin(time * 0.45) * 0.22;
+      const targetX = -0.05 + Math.sin(time * 0.3) * 0.05;
+      const e = 1 - Math.exp(-dt * 2.4);
+      rotY += (targetY - rotY) * e;
+      rotX += (targetX - rotX) * e;
+    } else {
+      rotY += vRotY; rotX += vRotX;
+      vRotY *= 0.94; vRotX *= 0.94;
+      rotY += dt * 0.12;
+      rotX = Math.max(-1.4, Math.min(1.4, rotX));
+    }
+  }
+
+  const cy = Math.cos(rotY), syn = Math.sin(rotY);
+  const cx = Math.cos(rotX), sxn = Math.sin(rotX);
+  const fdt = dt * 60;
+  const damp = Math.pow(0.88, fdt);
+  const k = 0.016 * fdt;
+  const halfW = W / 2, halfH = H / 2;
+  const repel = mouseOn && pointers.size <= 1;
+  const mrx = 110 * DPR, mrx2 = mrx * mrx;
+  const sizeK = SHAPES[shapeIdx].flat ? 0.72 : 1;
+
+  bHead.fill(-1);
+  flash *= Math.pow(0.9, fdt);
+  shake *= Math.pow(0.88, fdt);
+  const shx = (rnd() - 0.5) * shake * 26 * DPR;
+  const shy = (rnd() - 0.5) * shake * 26 * DPR;
+
+  for (let i = 0; i < N; i++) {
+    // spring toward target + gentle breathing
+    const wob = 0.012 * Math.sin(time * 1.7 + phz[i]);
+    vx[i] = (vx[i] + (tx[i] + wob - px[i]) * k) * damp;
+    vy[i] = (vy[i] + (ty[i] + wob - py[i]) * k) * damp;
+    vz[i] = (vz[i] + (tz[i] - pz[i]) * k) * damp;
+    px[i] += vx[i] * fdt; py[i] += vy[i] * fdt; pz[i] += vz[i] * fdt;
+
+    // rotate: Y then X
+    const x1 = px[i] * cy + pz[i] * syn;
+    const z1 = -px[i] * syn + pz[i] * cy;
+    const y2 = py[i] * cx - z1 * sxn;
+    const z2 = py[i] * sxn + z1 * cx;
+    const depth = camDist + z2;
+    if (depth < 0.35) { bNext[i] = -1; continue; }
+    const ps = focal / depth;
+    let X = halfW + x1 * ps + shx;
+    let Y = halfH - y2 * ps + shy;
+
+    if (repel) {
+      const dx = X - mouseX, dy = Y - mouseY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < mrx2 && d2 > 1) {
+        const d = Math.sqrt(d2);
+        const f = (1 - d / mrx) * 2.4 * DPR / d;
+        X += dx * f; Y += dy * f;
+        vx[i] += dx * f / ps * 0.12;
+        vy[i] -= dy * f / ps * 0.12;
+      }
+    }
+    if (X < -20 || X > W + 20 || Y < -20 || Y > H + 20) { bNext[i] = -1; continue; }
+
+    sx[i] = X; sy[i] = Y;
+    ss[i] = Math.min(psz[i] * ps * sizeK, 7 * DPR);
+    let bright = (depth - camDist + 1.6) / 3.2;   // near = bright
+    bright = 1 - bright;
+    let lb = (bright * LB) | 0;
+    if (lb < 0) lb = 0; else if (lb >= LB) lb = LB - 1;
+    const hb = (hue[i] / (360 / HB)) | 0;
+    const b = hb * LB + lb;
+    bNext[i] = bHead[b]; bHead[b] = i;
+  }
+
+  // ---- draw ----
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = `rgba(3,4,9,${fade})`;
+  ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = fade;                       // keep bg at constant equilibrium
+  ctx.drawImage(bg, 0, 0);
+  ctx.globalAlpha = 1;
+
+  // meteor
+  meteorTimer -= dt;
+  if (!meteor && meteorTimer <= 0) {
+    meteorTimer = 3 + rnd() * 5;
+    const ang = 0.5 + rnd() * 0.5;
+    meteor = { x: rnd() * W * 0.8, y: rnd() * H * 0.3, vx: Math.cos(ang) * 900 * DPR, vy: Math.sin(ang) * 900 * DPR, life: 0.7 };
+  }
+  if (meteor) {
+    meteor.life -= dt;
+    meteor.x += meteor.vx * dt; meteor.y += meteor.vy * dt;
+    if (meteor.life <= 0) meteor = null;
+    else {
+      const a = Math.min(1, meteor.life * 2.5);
+      const tx2 = meteor.x - meteor.vx * 0.09, ty2 = meteor.y - meteor.vy * 0.09;
+      const g = ctx.createLinearGradient(meteor.x, meteor.y, tx2, ty2);
+      g.addColorStop(0, `rgba(220,240,255,${0.8 * a})`);
+      g.addColorStop(1, 'rgba(220,240,255,0)');
+      ctx.strokeStyle = g; ctx.lineWidth = 1.6 * DPR;
+      ctx.beginPath(); ctx.moveTo(meteor.x, meteor.y); ctx.lineTo(tx2, ty2); ctx.stroke();
+    }
+  }
+
+  // particles, bucketed by color
+  for (let b = 0; b < BUCKETS; b++) {
+    let i = bHead[b];
+    if (i < 0) continue;
+    ctx.fillStyle = palette[b];
+    while (i >= 0) {
+      const s = ss[i];
+      ctx.fillRect(sx[i] - s * 0.5, sy[i] - s * 0.5, s, s);
+      i = bNext[i];
+    }
+  }
+
+  if (flash > 0.01) {
+    ctx.fillStyle = `rgba(255,245,255,${flash})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  statTimer += dt;
+  if (statTimer > 0.5) {
+    statTimer = 0;
+    $('stats').innerHTML = `FPS ${Math.round(fps)}<br>PARTICLES ${N}`;
+  }
+}
+
+/* ================= boot ================= */
+addEventListener('resize', resize);
+resize();
+allocParticles();
+morph(0, 0);
+requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
+})();
+</script>
+</body>
+</html>

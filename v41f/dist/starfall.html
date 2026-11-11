@@ -1,0 +1,2976 @@
+<!doctype html>
+<!--
+  STARFALL · 星坠 — 单文件发行版
+  生成于 2026-11-11T11:12:54.297Z
+  零依赖 · 零构建 · 双击即可运行
+-->
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#04060c">
+<title>STARFALL · 星坠 — 生成式视觉引擎</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2L30 16 16 30 2 16Z' fill='none' stroke='%237df9ff' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='2.2' fill='%23ff4fd8'/%3E%3C/svg%3E">
+<style>
+/* STARFALL · HUD skin — no external fonts, no external assets */
+:root {
+  --bg: #04060c;
+  --ink: #e9f6ff;
+  --dim: rgba(224, 240, 255, 0.55);
+  --dimmer: rgba(224, 240, 255, 0.38);
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #7df9ff;
+  --accent2: #ff4fd8;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --cjk: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+#gl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+body.paused #gl { cursor: default; }
+
+/* subtle CRT scanlines */
+.scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.022) 0px,
+    rgba(255, 255, 255, 0.022) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  z-index: 2;
+}
+
+/* sci-fi corner brackets */
+.frame {
+  position: absolute;
+  inset: 18px;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0.75;
+}
+.frame .c {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-color: rgba(255, 255, 255, 0.22);
+  border-style: solid;
+  border-width: 0;
+}
+.frame .tl { top: 0; left: 0; border-top-width: 1px; border-left-width: 1px; }
+.frame .tr { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; }
+.frame .bl { bottom: 0; left: 0; border-bottom-width: 1px; border-left-width: 1px; }
+.frame .br { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* ---------- HUD ---------- */
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+}
+body.hide-hud .hud { opacity: 0; }
+.hud::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(2, 4, 9, 0.62) 0%,
+    rgba(2, 4, 9, 0.18) 12%,
+    rgba(2, 4, 9, 0) 30%,
+    rgba(2, 4, 9, 0) 68%,
+    rgba(2, 4, 9, 0.30) 88%,
+    rgba(2, 4, 9, 0.68) 100%);
+}
+.hud::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.42) 100%);
+}
+
+.brand {
+  position: absolute;
+  top: 30px;
+  left: 38px;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+}
+.mark {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 55%, transparent));
+  animation: mark-rotate 26s linear infinite;
+  flex: none;
+}
+.mark.big { width: 58px; height: 58px; margin-bottom: 22px; }
+@keyframes mark-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.brand-txt h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.44em;
+  line-height: 1;
+  background: linear-gradient(96deg, var(--accent) 0%, #ffffff 46%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent) 25%, transparent));
+}
+.brand-txt p {
+  margin: 7px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.brand-txt .sep { color: var(--dimmer); margin: 0 2px; }
+
+.telemetry {
+  position: absolute;
+  top: 30px;
+  right: 40px;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+  min-width: 168px;
+  text-align: right;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  line-height: 1.9;
+}
+.telemetry .row { display: flex; justify-content: flex-end; gap: 14px; align-items: baseline; }
+.telemetry .k { color: var(--dimmer); font-size: 9px; letter-spacing: 0.24em; }
+.telemetry .v { color: var(--ink); font-variant-numeric: tabular-nums; }
+.telemetry .v.dim { color: var(--dim); }
+.telemetry .fps-row { align-items: baseline; margin-bottom: 2px; }
+.telemetry .fps-row .v {
+  font-size: 25px;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--accent);
+  text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 45%, transparent);
+  letter-spacing: 0.02em;
+}
+.telemetry .rule {
+  height: 1px;
+  margin: 9px 0 7px;
+  background: linear-gradient(90deg, transparent, var(--line) 35%, var(--line));
+}
+
+.picker {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+.pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 16px 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(6, 10, 18, 0.5);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.3s ease, transform 0.2s ease;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8);
+}
+.pill .n { font-size: 8.5px; color: var(--dimmer); letter-spacing: 0.08em; }
+.pill .cn { font-family: var(--cjk); font-size: 9.5px; letter-spacing: 0.12em; color: var(--dimmer); }
+.pill:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  transform: translateY(-1px);
+}
+.pill.active {
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--accent) 70%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), rgba(6, 10, 18, 0.62));
+  box-shadow: 0 0 26px color-mix(in srgb, var(--accent) 26%, transparent), inset 0 0 18px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.pill.active .n { color: var(--accent); }
+.pill.active .cn { color: color-mix(in srgb, var(--accent) 82%, #ffffff); }
+
+.hints {
+  position: absolute;
+  left: 38px;
+  bottom: 32px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  max-width: 47vw;
+  font-family: var(--cjk);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--dimmer);
+  pointer-events: none;
+}
+.hints span { display: inline-flex; align-items: center; gap: 6px; }
+kbd {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: #cfe6f7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+}
+
+.audio {
+  position: absolute;
+  right: 42px;
+  bottom: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(6, 10, 18, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: color 0.25s ease, border-color 0.25s ease, box-shadow 0.3s ease;
+}
+.audio:hover { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.audio.on {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.audio-lbl { white-space: nowrap; }
+.eq { display: inline-flex; align-items: flex-end; gap: 2px; height: 11px; }
+.eq i {
+  display: block;
+  width: 2px;
+  height: 3px;
+  background: var(--dim);
+  border-radius: 1px;
+  transition: background 0.3s ease;
+}
+.audio.on .eq i { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.audio.on .eq i:nth-child(1) { animation: eq 0.9s ease-in-out infinite alternate; }
+.audio.on .eq i:nth-child(2) { animation: eq 0.62s ease-in-out infinite alternate 0.12s; }
+.audio.on .eq i:nth-child(3) { animation: eq 1.1s ease-in-out infinite alternate 0.05s; }
+.audio.on .eq i:nth-child(4) { animation: eq 0.76s ease-in-out infinite alternate 0.22s; }
+@keyframes eq {
+  from { height: 3px; }
+  to { height: 11px; }
+}
+
+.paused {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 12px 26px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: rgba(4, 6, 12, 0.72);
+  backdrop-filter: blur(8px);
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.55em;
+  text-indent: 0.55em;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+.paused[hidden] { display: none; }
+
+/* ---------- boot ---------- */
+.boot {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(60% 55% at 50% 44%, rgba(24, 58, 96, 0.5) 0%, rgba(4, 6, 12, 0.96) 62%, #04060c 100%);
+  transition: opacity 0.85s ease, visibility 0.85s ease;
+}
+.boot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 55%);
+  pointer-events: none;
+}
+.boot.gone { opacity: 0; visibility: hidden; pointer-events: none; }
+.boot-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+}
+.boot-inner h1 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 500;
+  letter-spacing: 0.52em;
+  text-indent: 0.52em;
+  background: linear-gradient(96deg, var(--accent) 0%, #ffffff 50%, var(--accent2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.boot-inner .cn {
+  margin: 12px 0 0;
+  font-family: var(--cjk);
+  font-size: 11px;
+  letter-spacing: 0.34em;
+  color: var(--dim);
+}
+.boot .bar {
+  width: 230px;
+  height: 2px;
+  margin: 34px 0 16px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.boot .bar i {
+  display: block;
+  width: 8%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  box-shadow: 0 0 18px var(--accent);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.boot .status {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--dim);
+  min-height: 12px;
+}
+.boot .fine {
+  margin: 30px 0 0;
+  font-family: var(--cjk);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--dimmer);
+}
+
+/* ---------- misc ---------- */
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: 92px;
+  transform: translate(-50%, 10px);
+  z-index: 60;
+  padding: 9px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  background: rgba(6, 10, 18, 0.88);
+  color: #dff4ff;
+  font-family: var(--cjk);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--cjk);
+  font-size: 13px;
+  letter-spacing: 0.16em;
+}
+
+@media (max-width: 820px) {
+  .frame { inset: 10px; }
+  .frame .c { width: 16px; height: 16px; }
+  .brand { top: 20px; left: 20px; gap: 10px; }
+  .mark { width: 26px; height: 26px; }
+  .brand-txt h1 { font-size: 13px; letter-spacing: 0.36em; }
+  .brand-txt p { font-size: 8px; letter-spacing: 0.12em; }
+  .telemetry { top: 20px; right: 22px; min-width: 0; font-size: 9px; }
+  .telemetry .fps-row .v { font-size: 19px; }
+  .telemetry .row:nth-child(2) { display: none; }
+  .telemetry .rule { margin: 5px 0 4px; }
+  .hints { display: none; }
+  .picker {
+    bottom: 74px;
+    gap: 6px;
+    max-width: 92vw;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .pill { padding: 7px 12px; font-size: 9px; letter-spacing: 0.14em; }
+  .pill .cn { display: none; }
+  .audio { right: 18px; bottom: 18px; padding: 8px 12px; }
+  .toast { bottom: 128px; max-width: 86vw; text-align: center; }
+  .boot-inner h1 { font-size: 20px; letter-spacing: 0.4em; text-indent: 0.4em; }
+  .boot .bar { width: 170px; margin-top: 26px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark { animation: none; }
+  .audio.on .eq i { animation: none; height: 6px; }
+  .boot .bar i { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="gl" aria-label="实时生成式视觉画布" role="img"></canvas>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <div class="frame" aria-hidden="true">
+    <i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
+  </div>
+
+  <div class="hud" id="hud">
+    <header class="brand">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <defs>
+          <linearGradient id="mg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style="stop-color: var(--accent)"/>
+            <stop offset="1" style="stop-color: var(--accent2)"/>
+          </linearGradient>
+        </defs>
+        <path d="M16 2 L30 16 L16 30 L2 16 Z" fill="none" stroke="url(#mg)" stroke-width="1.2"/>
+        <path d="M16 8 L24 16 L16 24 L8 16 Z" fill="none" stroke="url(#mg)" stroke-width="0.6" opacity="0.7"/>
+        <circle cx="16" cy="16" r="1.5" fill="var(--accent)"/>
+      </svg>
+      <div class="brand-txt">
+        <h1>STARFALL</h1>
+        <p>星坠 · 生成式视觉引擎 <span class="sep">/</span> REALTIME WEBGL2</p>
+      </div>
+    </header>
+
+    <aside class="telemetry" aria-label="运行状态">
+      <div class="row fps-row"><span class="k">FPS</span><span class="v" id="fps">--</span></div>
+      <div class="row"><span class="k">RENDER</span><span class="v dim" id="scale">100%</span></div>
+      <div class="rule"></div>
+      <div class="row"><span class="k">SCENE</span><span class="v" id="scene-id">—</span></div>
+      <div class="row"><span class="k">DETAIL</span><span class="v dim" id="detail">—</span></div>
+    </aside>
+
+    <nav class="picker" id="picker" aria-label="场景切换"></nav>
+
+    <div class="hints" aria-hidden="true">
+      <span><kbd>拖拽</kbd> 扰动</span>
+      <span><kbd>点击</kbd> 冲击波</span>
+      <span><kbd>1–3</kbd> 切换</span>
+      <span><kbd>空格</kbd> 暂停</span>
+      <span><kbd>R</kbd> 重播种</span>
+      <span><kbd>H</kbd> 隐藏界面</span>
+    </div>
+
+    <button class="audio" id="audio" type="button" aria-pressed="false" title="开启程序化环境音 (M)">
+      <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      <span class="audio-lbl">AMBIENT · OFF</span>
+    </button>
+
+    <div class="paused" id="paused" hidden>PAUSED</div>
+  </div>
+
+  <div class="boot" id="boot">
+    <div class="boot-inner">
+      <svg class="mark big" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 2 L30 16 L16 30 L2 16 Z" fill="none" stroke="url(#mg)" stroke-width="1.1"/>
+        <path d="M16 8 L24 16 L16 24 L8 16 Z" fill="none" stroke="url(#mg)" stroke-width="0.5" opacity="0.7"/>
+        <circle cx="16" cy="16" r="1.4" fill="var(--accent)"/>
+      </svg>
+      <h1>STARFALL</h1>
+      <p class="cn">星坠 · 生成式视觉引擎</p>
+      <div class="bar"><i id="boot-bar"></i></div>
+      <p class="status" id="boot-status">BOOTING WEBGL2 CONTEXT…</p>
+      <p class="fine">拖拽扰动 · 点击冲击 · 1–3 切换场景</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<noscript><div class="noscript">STARFALL 需要启用 JavaScript 与 WebGL2。</div></noscript>
+
+<script>
+/* STARFALL · WebGL2 utilities — no dependencies, classic script */
+(function () {
+  'use strict';
+
+  const NEB = (window.NEB = window.NEB || {});
+  NEB.scenes = NEB.scenes || {};
+
+  const FULLSCREEN_VS = `#version 300 es
+out vec2 vUv;
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  vUv = p;
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+  const U = {
+    gl: null,
+    fullscreenVS: FULLSCREEN_VS,
+    hdr: null,
+    emptyVAO: null,
+  };
+
+  U.init = function (gl) {
+    U.gl = gl;
+    U.emptyVAO = gl.createVertexArray();
+
+    const floatRT = !!gl.getExtension('EXT_color_buffer_float');
+    U.hdr = floatRT
+      ? { internalFormat: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT, floatRenderable: true }
+      : { internalFormat: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE, floatRenderable: false };
+
+    // Linear filtering of half-float textures is core in WebGL2.
+    U.aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+    return U;
+  };
+
+  U.compile = function (gl, type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      const log = gl.getShaderInfoLog(sh);
+      const kind = type === gl.VERTEX_SHADER ? 'VERTEX' : 'FRAGMENT';
+      gl.deleteShader(sh);
+      const numbered = src.split('\n').map((l, i) => String(i + 1).padStart(3, ' ') + ' | ' + l).join('\n');
+      throw new Error(kind + ' shader compile failed:\n' + log + '\n---\n' + numbered);
+    }
+    return sh;
+  };
+
+  U.program = function (gl, vsSrc, fsSrc) {
+    const vs = U.compile(gl, gl.VERTEX_SHADER, vsSrc);
+    const fs = U.compile(gl, gl.FRAGMENT_SHADER, fsSrc);
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      const log = gl.getProgramInfoLog(prog);
+      gl.deleteProgram(prog);
+      throw new Error('Program link failed:\n' + log);
+    }
+    prog.__uniforms = new Map();
+    return prog;
+  };
+
+  U.loc = function (gl, prog, name) {
+    if (!prog.__uniforms) prog.__uniforms = new Map();
+    const cache = prog.__uniforms;
+    if (cache.has(name)) return cache.get(name);
+    const loc = gl.getUniformLocation(prog, name);
+    cache.set(name, loc);
+    return loc;
+  };
+
+  U.u1f = function (gl, p, n, x) { gl.uniform1f(U.loc(gl, p, n), x); };
+  U.u1i = function (gl, p, n, x) { gl.uniform1i(U.loc(gl, p, n), x); };
+  U.u2f = function (gl, p, n, x, y) { gl.uniform2f(U.loc(gl, p, n), x, y); };
+  U.u3f = function (gl, p, n, x, y, z) { gl.uniform3f(U.loc(gl, p, n), x, y, z); };
+  U.u4f = function (gl, p, n, x, y, z, w) { gl.uniform4f(U.loc(gl, p, n), x, y, z, w); };
+  U.uMat4 = function (gl, p, n, m) { gl.uniformMatrix4fv(U.loc(gl, p, n), false, m); };
+
+  U.tex = function (gl, w, h, opts) {
+    const o = opts || {};
+    const internalFormat = o.internalFormat || U.hdr.internalFormat;
+    const format = o.format || gl.RGBA;
+    const type = o.type || U.hdr.type;
+    const filter = o.filter === undefined ? gl.LINEAR : o.filter;
+    const wrap = o.wrap === undefined ? gl.CLAMP_TO_EDGE : o.wrap;
+
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, o.data || null);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    tex.__w = w;
+    tex.__h = h;
+    return tex;
+  };
+
+  U.fbo = function (gl, tex) {
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.deleteFramebuffer(fbo);
+      throw new Error('Incomplete framebuffer (status 0x' + status.toString(16) + ')');
+    }
+    return fbo;
+  };
+
+  U.target = function (gl, w, h, opts) {
+    const tex = U.tex(gl, w, h, opts);
+    const fbo = U.fbo(gl, tex);
+    return {
+      tex: tex, fbo: fbo, w: w, h: h,
+      resize: function (nw, nh) {
+        if (nw === this.w && nh === this.h) return;
+        gl.deleteFramebuffer(this.fbo);
+        gl.deleteTexture(this.tex);
+        this.tex = U.tex(gl, nw, nh, opts);
+        this.fbo = U.fbo(gl, this.tex);
+        this.w = nw; this.h = nh;
+      },
+      dispose: function () {
+        gl.deleteFramebuffer(this.fbo);
+        gl.deleteTexture(this.tex);
+      },
+    };
+  };
+
+  U.pingpong = function (gl, w, h, opts) {
+    const pp = {
+      w: w, h: h, read: null, write: null,
+      swap: function () {
+        const t = pp.read; pp.read = pp.write; pp.write = t;
+      },
+      resize: function (nw, nh) {
+        if (nw === pp.w && nh === pp.h) return;
+        pp.w = nw; pp.h = nh;
+        pp.read.resize(nw, nh);
+        pp.write.resize(nw, nh);
+      },
+      dispose: function () {
+        pp.read.dispose();
+        pp.write.dispose();
+      },
+    };
+    pp.read = U.target(gl, w, h, opts);
+    pp.write = U.target(gl, w, h, opts);
+    return pp;
+  };
+
+  U.setTex = function (gl, unit, tex) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+  };
+
+  U.quad = function (gl) {
+    gl.bindVertexArray(U.emptyVAO);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  };
+
+  U.clear = function (gl, r, g, b, a) {
+    gl.clearColor(r || 0, g || 0, b || 0, a === undefined ? 1 : a);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  };
+
+  U.lerp = function (a, b, t) { return a + (b - a) * t; };
+  U.clamp = function (x, a, b) { return Math.min(b, Math.max(a, x)); };
+  U.smoothstep = function (e0, e1, x) {
+    const t = U.clamp((x - e0) / (e1 - e0), 0, 1);
+    return t * t * (3 - 2 * t);
+  };
+  U.now = function () { return performance.now() / 1000; };
+
+  NEB.util = U;
+})();
+
+</script>
+<script>
+/* STARFALL · HDR post-processing: bright pass -> downsample chain -> additive upsample -> ACES composite */
+(function () {
+  'use strict';
+  const NEB = (window.NEB = window.NEB || {});
+  const U = NEB.util;
+
+  const BRIGHT_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+uniform float uThreshold;
+uniform float uKnee;
+in vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec3 c = texture(uTex, vUv).rgb;
+  float br = max(c.r, max(c.g, c.b));
+  float soft = clamp(br - uThreshold + uKnee, 0.0, 2.0 * uKnee);
+  soft = soft * soft / (4.0 * uKnee + 1e-5);
+  float w = max(soft, br - uThreshold) / max(br, 1e-5);
+  oColor = vec4(c * w, 1.0);
+}`;
+
+  const DOWN_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+in vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec2 t = uTexel;
+  vec3 a = texture(uTex, vUv + t * vec2(-2.0,  2.0)).rgb;
+  vec3 b = texture(uTex, vUv + t * vec2( 0.0,  2.0)).rgb;
+  vec3 c = texture(uTex, vUv + t * vec2( 2.0,  2.0)).rgb;
+  vec3 d = texture(uTex, vUv + t * vec2(-2.0,  0.0)).rgb;
+  vec3 e = texture(uTex, vUv).rgb;
+  vec3 f = texture(uTex, vUv + t * vec2( 2.0,  0.0)).rgb;
+  vec3 g = texture(uTex, vUv + t * vec2(-2.0, -2.0)).rgb;
+  vec3 h = texture(uTex, vUv + t * vec2( 0.0, -2.0)).rgb;
+  vec3 i = texture(uTex, vUv + t * vec2( 2.0, -2.0)).rgb;
+  vec3 j = texture(uTex, vUv + t * vec2(-1.0,  1.0)).rgb;
+  vec3 k = texture(uTex, vUv + t * vec2( 1.0,  1.0)).rgb;
+  vec3 l = texture(uTex, vUv + t * vec2(-1.0, -1.0)).rgb;
+  vec3 m = texture(uTex, vUv + t * vec2( 1.0, -1.0)).rgb;
+  vec3 r = e * 0.125
+    + (a + c + g + i) * 0.03125
+    + (b + d + f + h) * 0.0625
+    + (j + k + l + m) * 0.125;
+  oColor = vec4(r, 1.0);
+}`;
+
+  const UP_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+uniform float uRadius;
+in vec2 vUv;
+out vec4 oColor;
+void main() {
+  vec2 t = uTexel * uRadius;
+  vec3 s = texture(uTex, vUv).rgb * 4.0;
+  s += (texture(uTex, vUv + vec2(-t.x, 0.0)).rgb + texture(uTex, vUv + vec2(t.x, 0.0)).rgb
+      + texture(uTex, vUv + vec2(0.0, -t.y)).rgb + texture(uTex, vUv + vec2(0.0, t.y)).rgb) * 2.0;
+  s += texture(uTex, vUv + vec2(-t.x, -t.y)).rgb + texture(uTex, vUv + vec2(t.x, -t.y)).rgb
+     + texture(uTex, vUv + vec2(-t.x, t.y)).rgb + texture(uTex, vUv + vec2(t.x, t.y)).rgb;
+  oColor = vec4(s / 16.0, 1.0);
+}`;
+
+  const COMPOSITE_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uScene;
+uniform sampler2D uBloom;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uExposure;
+uniform float uBloomStrength;
+uniform float uFade;
+uniform float uAberration;
+uniform float uGrain;
+uniform float uVignette;
+uniform float uBass;
+in vec2 vUv;
+out vec4 oColor;
+
+vec3 aces(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec2 d = uv - 0.5;
+  float r2 = dot(d, d);
+
+  // chromatic aberration grows toward the frame edge, pulses with bass
+  vec2 ca = d * (uAberration + uBass * 0.0022) * (0.25 + r2 * 2.2);
+  vec3 col;
+  col.r = texture(uScene, uv + ca).r;
+  col.g = texture(uScene, uv).g;
+  col.b = texture(uScene, uv - ca).b;
+
+  // HDR bloom
+  vec3 bloom = texture(uBloom, uv).rgb;
+  col += bloom * uBloomStrength;
+
+  // exposure + filmic tonemap
+  col *= uExposure;
+  col = aces(col);
+
+  // vignette
+  float v = 1.0 - smoothstep(0.25, 0.92, length(d) * 1.35);
+  col *= mix(1.0, v, uVignette);
+
+  // film grain
+  float g = hash12(gl_FragCoord.xy + fract(uTime) * 137.0);
+  col += (g - 0.5) * uGrain;
+
+  // linear -> sRGB-ish display
+  col = pow(max(col, 0.0), vec3(1.0 / 2.2));
+
+  col *= uFade;
+  oColor = vec4(col, 1.0);
+}`;
+
+  const LEVELS = 4;
+
+  function Post(gl, w, h) {
+    this.gl = gl;
+    this.w = w;
+    this.h = h;
+    this.sceneW = w;
+    this.sceneH = h;
+    this.levels = [];
+    this.brightProg = U.program(gl, U.fullscreenVS, BRIGHT_FS);
+    this.downProg = U.program(gl, U.fullscreenVS, DOWN_FS);
+    this.upProg = U.program(gl, U.fullscreenVS, UP_FS);
+    this.compProg = U.program(gl, U.fullscreenVS, COMPOSITE_FS);
+    this.resize(w, h);
+  }
+
+  Post.prototype._disposeLevels = function () {
+    for (let i = 0; i < this.levels.length; i++) this.levels[i].dispose();
+    this.levels.length = 0;
+  };
+
+  Post.prototype.resize = function (w, h) {
+    const gl = this.gl;
+    this._disposeLevels();
+    this.w = Math.max(2, Math.floor(w));
+    this.h = Math.max(2, Math.floor(h));
+    let lw = Math.max(1, Math.floor(this.w / 2));
+    let lh = Math.max(1, Math.floor(this.h / 2));
+    for (let i = 0; i < LEVELS; i++) {
+      this.levels.push(U.target(gl, Math.max(1, lw >> i), Math.max(1, lh >> i), {
+        filter: gl.LINEAR,
+        wrap: gl.CLAMP_TO_EDGE,
+      }));
+    }
+  };
+
+  // sceneTex: HDR texture; params: { sceneW, sceneH, time, fade, bloom, exposure,
+  //   threshold, knee, aberration, grain, vignette, bass }
+  Post.prototype.render = function (sceneTex, params) {
+    const gl = this.gl;
+    const p = params || {};
+    const fade = p.fade === undefined ? 1 : p.fade;
+    const bloom = p.bloom === undefined ? 1.0 : p.bloom;
+    const exposure = p.exposure === undefined ? 1.0 : p.exposure;
+    const threshold = p.threshold === undefined ? (U.hdr.floatRenderable ? 0.9 : 0.72) : p.threshold;
+    const knee = p.knee === undefined ? 0.5 : p.knee;
+    const aberration = p.aberration === undefined ? 0.0016 : p.aberration;
+    const grain = p.grain === undefined ? 0.012 : p.grain;
+    const vignette = p.vignette === undefined ? 0.55 : p.vignette;
+    const bass = p.bass || 0;
+    const time = p.time || 0;
+    const sceneW = p.sceneW || this.sceneW;
+    const sceneH = p.sceneH || this.sceneH;
+    this.sceneW = sceneW;
+    this.sceneH = sceneH;
+
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+
+    // 1. bright pass -> level 0
+    const l0 = this.levels[0];
+    gl.bindFramebuffer(gl.FRAMEBUFFER, l0.fbo);
+    gl.viewport(0, 0, l0.w, l0.h);
+    gl.useProgram(this.brightProg);
+    U.setTex(gl, 0, sceneTex);
+    gl.uniform1i(U.loc(gl, this.brightProg, 'uTex'), 0);
+    U.u2f(gl, this.brightProg, 'uTexel', 1 / sceneW, 1 / sceneH);
+    U.u1f(gl, this.brightProg, 'uThreshold', threshold);
+    U.u1f(gl, this.brightProg, 'uKnee', knee);
+    U.quad(gl);
+
+    // 2. downsample chain
+    gl.useProgram(this.downProg);
+    for (let i = 1; i < LEVELS; i++) {
+      const src = this.levels[i - 1];
+      const dst = this.levels[i];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
+      gl.viewport(0, 0, dst.w, dst.h);
+      U.setTex(gl, 0, src.tex);
+      gl.uniform1i(U.loc(gl, this.downProg, 'uTex'), 0);
+      U.u2f(gl, this.downProg, 'uTexel', 1 / src.w, 1 / src.h);
+      U.quad(gl);
+    }
+
+    // 3. additive upsample chain
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.useProgram(this.upProg);
+    for (let i = LEVELS - 1; i > 0; i--) {
+      const src = this.levels[i];
+      const dst = this.levels[i - 1];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
+      gl.viewport(0, 0, dst.w, dst.h);
+      U.setTex(gl, 0, src.tex);
+      gl.uniform1i(U.loc(gl, this.upProg, 'uTex'), 0);
+      U.u2f(gl, this.upProg, 'uTexel', 1 / src.w, 1 / src.h);
+      U.u1f(gl, this.upProg, 'uRadius', 1.0);
+      U.quad(gl);
+    }
+    gl.disable(gl.BLEND);
+
+    // 4. composite to canvas
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    gl.useProgram(this.compProg);
+    U.setTex(gl, 0, sceneTex);
+    U.setTex(gl, 1, this.levels[0].tex);
+    gl.uniform1i(U.loc(gl, this.compProg, 'uScene'), 0);
+    gl.uniform1i(U.loc(gl, this.compProg, 'uBloom'), 1);
+    U.u2f(gl, this.compProg, 'uResolution', gl.drawingBufferWidth, gl.drawingBufferHeight);
+    U.u1f(gl, this.compProg, 'uTime', time);
+    U.u1f(gl, this.compProg, 'uExposure', exposure);
+    U.u1f(gl, this.compProg, 'uBloomStrength', bloom);
+    U.u1f(gl, this.compProg, 'uFade', fade);
+    U.u1f(gl, this.compProg, 'uAberration', aberration);
+    U.u1f(gl, this.compProg, 'uGrain', grain);
+    U.u1f(gl, this.compProg, 'uVignette', vignette);
+    U.u1f(gl, this.compProg, 'uBass', bass);
+    U.quad(gl);
+  };
+
+  Post.prototype.dispose = function () {
+    this._disposeLevels();
+    const gl = this.gl;
+    [this.brightProg, this.downProg, this.upProg, this.compProg].forEach(function (p) { gl.deleteProgram(p); });
+  };
+
+  NEB.Post = Post;
+})();
+
+</script>
+<script>
+/* STARFALL · Scene 01 — NEBULA
+ * 262,144 GPU particles (512x512 state texture) driven by curl noise,
+ * pointer vortices and audio-reactive forces. Additive HDR points. */
+(function () {
+  'use strict';
+  const U = window.NEB.util;
+  const SIM = 512;
+  const COUNT = SIM * SIM;
+
+  const STATE_FRAG = `#version 300 es
+precision highp float;
+
+uniform sampler2D uState;
+uniform float uTime;
+uniform float uDt;
+uniform vec2 uAspect;
+uniform vec2 uPointer;
+uniform vec2 uPulsePos;
+uniform float uPulse;
+uniform float uBass;
+uniform float uEnergy;
+
+out vec4 oState;
+
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 permute(vec4 x) { return mod289(((x * 34.0) + 1.0) * x); }
+vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+float snoise(vec3 v) {
+  const vec2 C = vec2(1.0 / 6.0, 1.0 / 3.0);
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+  vec3 i  = floor(v + dot(v, C.yyy));
+  vec3 x0 = v - i + dot(i, C.xxx);
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min(g.xyz, l.zxy);
+  vec3 i2 = max(g.xyz, l.zxy);
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy;
+  vec3 x3 = x0 - D.yyy;
+  i = mod289(i);
+  vec4 p = permute(permute(permute(
+            i.z + vec4(0.0, i1.z, i2.z, 1.0))
+          + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+          + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+  float n_ = 0.142857142857;
+  vec3 ns = n_ * D.wyz - D.xzx;
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_);
+  vec4 x = x_ * ns.x + ns.yyyy;
+  vec4 y = y_ * ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+  vec4 b0 = vec4(x.xy, y.xy);
+  vec4 b1 = vec4(x.zw, y.zw);
+  vec4 s0 = floor(b0) * 2.0 + 1.0;
+  vec4 s1 = floor(b1) * 2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+  vec4 a0 = b0.xzyw + s0.xzyw * sh.xxyy;
+  vec4 a1 = b1.xzyw + s1.xzyw * sh.zzww;
+  vec3 p0 = vec3(a0.xy, h.x);
+  vec3 p1 = vec3(a0.zw, h.y);
+  vec3 p2 = vec3(a1.xy, h.z);
+  vec3 p3 = vec3(a1.zw, h.w);
+  vec4 norm = taylorInvSqrt(vec4(dot(p0, p0), dot(p1, p1), dot(p2, p2), dot(p3, p3)));
+  p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+  vec4 m = max(0.6 - vec4(dot(x0, x0), dot(x1, x1), dot(x2, x2), dot(x3, x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot(m * m, vec4(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
+}
+
+vec2 curl(vec3 p) {
+  const float e = 0.14;
+  float n1 = snoise(p + vec3(0.0, e, 0.0));
+  float n2 = snoise(p - vec3(0.0, e, 0.0));
+  float n3 = snoise(p + vec3(e, 0.0, 0.0));
+  float n4 = snoise(p - vec3(e, 0.0, 0.0));
+  return vec2(n1 - n2, -(n3 - n4)) / (2.0 * e);
+}
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec4 st = texelFetch(uState, ip, 0);
+  vec2 p = st.xy;
+  vec2 vel = st.zw;
+
+  float r = length(p) + 1e-4;
+  vec2 tang = vec2(-p.y, p.x) / r;
+
+  // differential rotation: the inner disk spins faster
+  float orbit = 0.26 / (0.30 + r * 1.15);
+  vec2 target = tang * orbit;
+
+  // curl-noise turbulence (two octaves)
+  vec3 np = vec3(p * 2.35, uTime * 0.10);
+  target += curl(np) * 0.22;
+  target += curl(np * 2.9 + vec3(7.3, 1.9, uTime * 0.06)) * 0.10;
+
+  // pointer stir: swirl + gentle push
+  vec2 pd = p - uPointer;
+  float pd2 = dot(pd, pd);
+  float pin = exp(-pd2 * 3.2);
+  vec2 pdN = pd / (sqrt(pd2) + 0.08);
+  target += vec2(-pdN.y, pdN.x) * pin * 1.15;
+  target += pdN * pin * 0.32;
+
+  // click shockwave
+  if (uPulse > 0.001) {
+    target += pdN * uPulse * exp(-pd2 * 3.5) * 7.5;
+  }
+
+  // audio breathing
+  target *= 1.0 + uBass * 0.9 + uEnergy * 0.25;
+
+  vel += (target - vel) * clamp(uDt * 2.2, 0.0, 1.0);
+  vel *= exp(-uDt * 0.45);
+  p += vel * uDt;
+
+  // strays respawn back into the nebula disk
+  if (abs(p.x) > 1.12 || abs(p.y) > 1.12) {
+    float h1 = hash21(vec2(gl_FragCoord.x, gl_FragCoord.y));
+    float h2 = hash21(vec2(h1, 3.17));
+    float ang = h2 * 6.2831853;
+    float rad = pow(hash21(vec2(gl_FragCoord.y, h1)), 0.7) * 0.95;
+    p = vec2(cos(ang) * rad, sin(ang) * rad);
+    vel = vec2(-sin(ang), cos(ang)) * 0.06;
+  }
+
+oState = vec4(p, vel);
+}`;
+
+  const BG_FRAG = `#version 300 es
+precision highp float;
+uniform float uTime;
+uniform vec2 uAspect;
+uniform float uBass;
+in vec2 vUv;
+out vec4 oColor;
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { v += a * vnoise(p); p = p * 2.03 + 11.7; a *= 0.5; }
+  return v;
+}
+
+void main() {
+  vec2 p = (vUv - 0.5) * vec2(uAspect.x, 1.0) * 2.0;
+  float r = length(p);
+  vec3 col = vec3(0.004, 0.009, 0.022);
+  float t = uTime * 0.03;
+
+  vec2 q = p * 1.35 + vec2(t * 0.7, -t * 0.4);
+  float n1 = fbm(q + vec2(sin(t), cos(t)) * 0.35);
+  float n2 = fbm(q * 1.9 - 3.2 + vec2(cos(t * 1.3), sin(t * 1.1)) * 0.4);
+  col += vec3(0.05, 0.13, 0.34) * smoothstep(0.36, 0.92, n1) * 0.85;
+  col += vec3(0.24, 0.05, 0.32) * smoothstep(0.42, 0.95, n2) * 0.7;
+  col += vec3(0.05, 0.24, 0.36) * smoothstep(0.52, 0.98, fbm(q * 3.1 + 7.0)) * 0.55;
+  col += vec3(0.14, 0.34, 0.66) * exp(-r * 2.4) * (0.26 + uBass * 0.55);
+  // hot nebula heart
+  col += vec3(0.42, 0.62, 1.10) * exp(-r * 5.2) * 0.22;
+  col += vec3(1.20, 0.78, 1.35) * exp(-r * 19.0) * 0.55;
+
+  // star field
+  vec2 gp = vUv * vec2(uAspect.x, 1.0) * 300.0;
+  vec2 cell = floor(gp);
+  vec2 f = fract(gp) - 0.5;
+  float h = hash21(cell);
+  float twinkle = 0.55 + 0.45 * sin(uTime * 2.3 + h * 42.0);
+  float star = step(0.976, h) * exp(-dot(f, f) * 26.0) * twinkle;
+  col += vec3(0.72, 0.86, 1.0) * star * 1.9;
+  float h2 = hash21(cell + 17.0);
+  float star2 = step(0.993, h2) * exp(-dot(f, f) * 46.0) * (0.7 + 0.3 * sin(uTime * 1.7 + h2 * 61.0));
+  col += vec3(0.9, 0.75, 1.0) * star2 * 3.2;
+
+  // deep vignette so particles pop
+  col *= 0.35 + 0.65 * (1.0 - smoothstep(0.15, 1.35, r));
+  oColor = vec4(col, 1.0);
+}`;
+
+  const POINTS_VS = `#version 300 es
+precision highp float;
+uniform sampler2D uState;
+uniform vec2 uStateSize;
+uniform float uTime;
+uniform float uBass;
+uniform float uEnergy;
+uniform float uPixelRatio;
+out vec3 vColor;
+out float vBright;
+
+float hash11(float n) {
+  return fract(sin(n * 127.1) * 43758.5453);
+}
+
+void main() {
+  int id = gl_VertexID;
+  int w = int(uStateSize.x);
+  ivec2 coord = ivec2(id % w, id / w);
+  vec4 st = texelFetch(uState, coord, 0);
+  vec2 p = st.xy;
+  vec2 vel = st.zw;
+  float speed = length(vel);
+  float r = length(p);
+
+  gl_Position = vec4(p, 0.0, 1.0);
+
+  float h = hash11(float(id));
+  float star = step(0.984 - 0.018 * exp(-r * 4.0), h);
+  float size = (1.10 + speed * 3.6) * uPixelRatio * (0.9 + uBass * 0.35);
+  size *= mix(1.0, 2.7, star);
+  gl_PointSize = clamp(size, 1.0, 7.0);
+
+  vec3 cCyan = vec3(0.20, 0.66, 1.10);
+  vec3 cPink = vec3(1.05, 0.24, 0.82);
+  vec3 cGold = vec3(1.20, 0.86, 0.48);
+  vec3 cWhite = vec3(1.10, 1.20, 1.35);
+
+  float mixv = 0.5 + 0.5 * sin(atan(p.y, p.x) * 1.7 + uTime * 0.22 + r * 3.1);
+  vec3 dust = mix(cCyan, cPink, mixv * 0.9);
+  dust = mix(dust, cGold, smoothstep(0.45, 1.05, speed) * 0.55);
+
+  vec3 starCol = mix(cWhite, mix(cGold, cPink, h * 1.6), 0.55);
+  vec3 col = mix(dust, starCol, star);
+  col *= 0.45 + 0.75 * (1.0 - smoothstep(0.1, 1.15, r));
+
+  vColor = col;
+  float dustBright = 0.055 + speed * 0.55 + uBass * 0.12 + uEnergy * 0.08;
+  vBright = mix(dustBright, 1.65 + speed * 3.4, star);
+}`;
+
+  const POINTS_FS = `#version 300 es
+precision highp float;
+in vec3 vColor;
+in float vBright;
+out vec4 oColor;
+void main() {
+  vec2 c = gl_PointCoord * 2.0 - 1.0;
+  float r2 = dot(c, c);
+  if (r2 > 1.0) discard;
+  float a = exp(-r2 * 4.2) * (1.0 - smoothstep(0.7, 1.0, r2));
+  oColor = vec4(vColor * a * vBright, 1.0);
+}`;
+
+  let gl = null;
+  let sim = null;
+  let stateProg = null;
+  let bgProg = null;
+  let pointProg = null;
+  let pointsVAO = null;
+  let w = 1, h = 1;
+  let aspectX = 1;
+  let pixelRatio = 1;
+  let time = 0;
+  let lastBass = 0;
+  let lastEnergy = 0;
+  const seedData = new Float32Array(COUNT * 4);
+
+  function seed(glCtx) {
+    const ax = aspectX;
+    for (let i = 0; i < COUNT; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const rad = Math.pow(Math.random(), 0.68) * 0.95;
+      const x = Math.cos(ang) * rad * ax;
+      const y = Math.sin(ang) * rad;
+      const tangential = (Math.random() < 0.75 ? 1 : -1) * (0.05 + Math.random() * 0.16);
+      const vx = -Math.sin(ang) * tangential;
+      const vy = Math.cos(ang) * tangential;
+      const o = i * 4;
+      seedData[o] = x;
+      seedData[o + 1] = y;
+      seedData[o + 2] = vx;
+      seedData[o + 3] = vy;
+    }
+    [sim.read, sim.write].forEach(function (target) {
+      glCtx.bindTexture(glCtx.TEXTURE_2D, target.tex);
+      glCtx.texSubImage2D(glCtx.TEXTURE_2D, 0, 0, 0, SIM, SIM, glCtx.RGBA, glCtx.FLOAT, seedData);
+    });
+    glCtx.bindTexture(glCtx.TEXTURE_2D, null);
+  }
+
+  const scene = {
+    meta: {
+      id: 'nebula', title: 'NEBULA', cn: '星云',
+      sub: '262,144 PARTICLES · CURL NOISE',
+      accent: '#7df9ff', accent2: '#c77dff', bloom: 0.95,
+    },
+
+    init: function (glCtx, initW, initH) {
+      gl = glCtx;
+      w = initW; h = initH;
+      aspectX = w / Math.max(1, h);
+      pixelRatio = w / Math.max(1, window.innerWidth);
+
+      if (!U.hdr.floatRenderable) {
+        // graceful HQ-less fallback: reuse a cheap procedural nebula
+        this.meta.sub = 'FLOAT RENDER TARGETS UNAVAILABLE';
+        bgProg = U.program(gl, U.fullscreenVS, BG_FRAG);
+        sim = null;
+        return;
+      }
+
+      stateProg = U.program(gl, U.fullscreenVS, STATE_FRAG);
+      bgProg = U.program(gl, U.fullscreenVS, BG_FRAG);
+      pointProg = U.program(gl, POINTS_VS, POINTS_FS);
+      pointsVAO = gl.createVertexArray();
+
+      sim = U.pingpong(gl, SIM, SIM, {
+        internalFormat: gl.RGBA32F,
+        type: gl.FLOAT,
+        filter: gl.NEAREST,
+      });
+      seed(gl);
+    },
+
+    resize: function (nw, nh) {
+      w = nw; h = nh;
+      aspectX = w / Math.max(1, h);
+      pixelRatio = U.clamp(w / Math.max(1, window.innerWidth), 0.4, 3);
+    },
+
+    update: function (dt, t, input) {
+      time = t;
+      lastBass = input.audio.bass;
+      lastEnergy = input.energy;
+      if (!sim || dt <= 0) return;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, sim.write.fbo);
+      gl.viewport(0, 0, SIM, SIM);
+      gl.disable(gl.BLEND);
+      gl.useProgram(stateProg);
+      U.setTex(gl, 0, sim.read.tex);
+      gl.uniform1i(U.loc(gl, stateProg, 'uState'), 0);
+      U.u1f(gl, stateProg, 'uTime', t);
+      U.u1f(gl, stateProg, 'uDt', Math.min(dt, 0.05));
+          U.u2f(gl, stateProg, 'uPointer', input.nx, input.ny);
+      U.u2f(gl, stateProg, 'uPulsePos', input.pulseU * 2 - 1, input.pulseV * 2 - 1);
+      U.u1f(gl, stateProg, 'uPulse', input.pulse);
+      U.u1f(gl, stateProg, 'uBass', input.audio.bass);
+      U.u1f(gl, stateProg, 'uEnergy', input.energy);
+      U.quad(gl);
+      sim.swap();
+    },
+
+    render: function (t) {
+      gl.useProgram(bgProg);
+      U.u1f(gl, bgProg, 'uTime', t);
+      U.u2f(gl, bgProg, 'uAspect', aspectX, 1);
+      U.u1f(gl, bgProg, 'uBass', lastBass);
+      U.quad(gl);
+
+      if (!sim) return;
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.useProgram(pointProg);
+      U.setTex(gl, 0, sim.read.tex);
+      gl.uniform1i(U.loc(gl, pointProg, 'uState'), 0);
+      U.u2f(gl, pointProg, 'uStateSize', SIM, SIM);
+      U.u1f(gl, pointProg, 'uTime', t);
+      U.u1f(gl, pointProg, 'uBass', lastBass);
+      U.u1f(gl, pointProg, 'uEnergy', lastEnergy);
+      U.u1f(gl, pointProg, 'uPixelRatio', pixelRatio);
+      gl.bindVertexArray(pointsVAO);
+      gl.drawArrays(gl.POINTS, 0, COUNT);
+      gl.bindVertexArray(null);
+      gl.disable(gl.BLEND);
+    },
+
+    onReseed: function () {
+      if (sim) seed(gl);
+    },
+
+    stats: '262,144 PARTICLES · 512² STATE',
+  };
+
+  window.NEB.scenes.nebula = scene;
+})();
+
+</script>
+<script>
+/* STARFALL · Scene 02 — WARP
+ * Raymarched kaleidoscopic warp tunnel: twisted 8-fold neon rings inside a
+ * glowing tube, with volumetric edge glow and a hot vanishing point. */
+(function () {
+  'use strict';
+  const U = window.NEB.util;
+
+  const FRAG = `#version 300 es
+precision highp float;
+
+uniform vec2 uRes;
+uniform float uTime;
+uniform float uBass;
+uniform float uPulse;
+uniform float uEnergy;
+uniform vec2 uPointer;
+uniform float uBoost;
+uniform vec2 uPulsePos;
+
+out vec4 oColor;
+
+const float TAU = 6.28318530718;
+
+mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+vec3 palette(float t) {
+  t = fract(t);
+  vec3 c1 = vec3(0.06, 0.58, 1.05);
+  vec3 c2 = vec3(1.05, 0.12, 0.78);
+  vec3 c3 = vec3(1.15, 0.68, 0.26);
+  vec3 c = mix(c1, c2, smoothstep(0.0, 0.48, t));
+  c = mix(c, c3, smoothstep(0.52, 1.0, t));
+  return c;
+}
+
+float map(vec3 p) {
+  float tw = p.z * 0.32 + uTime * 0.45;
+  vec2 q = rot(tw) * p.xy;
+  float r = length(q);
+  float a = atan(q.y, q.x);
+  float seg = TAU / 8.0;
+  float af = abs(mod(a, seg) - seg * 0.5);
+
+  // wall radius: 8-fold corrugation + slow breathing
+  float R = 1.34 + 0.085 * sin(af * 8.0 + p.z * 1.1 + uTime * 0.8) + 0.02 * sin(p.z * 3.0 + uTime);
+
+  float wall = abs(r - R) - 0.045;
+
+  // flying neon tori
+  float zz = mod(p.z + uTime * 2.0, 2.15) - 1.075;
+  float ring = length(vec2(r - R, zz)) - 0.065;
+
+  // small floating shards near the axis
+  vec3 sp = p;
+  sp.z = mod(sp.z + uTime * 1.2, 3.0) - 1.5;
+  float shard = length(sp.xy * rot(-sp.z * 1.5)) - 0.055;
+
+  return min(min(wall, ring), shard + 0.42);
+}
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+  float r0 = length(uv);
+
+  // camera: roll + tilt follows the pointer
+  uv = rot(uPointer.x * 0.18) * uv;
+  vec3 rd = normalize(vec3(uv * 1.32, 1.0));
+  rd.xz = rot(uPointer.x * 0.20) * rd.xz;
+  rd.yz = rot(-uPointer.y * 0.20) * rd.yz;
+  vec3 ro = vec3(0.0);
+
+  float speed = 1.0 + uBass * 1.4 + uBoost * 1.8 + uPulse * 2.5;
+
+  float t = 0.06;
+  float glow = 0.0;
+  vec3 p = ro;
+  bool hit = false;
+
+  for (int i = 0; i < 76; i++) {
+    p = ro + rd * t;
+    float d = map(p);
+    glow += exp(-abs(d) * 12.0) * exp(-t * 0.26) * 0.0045;
+    if (d < 0.0018) { hit = true; break; }
+    t += d * 0.85;
+    if (t > 22.0) break;
+  }
+
+  vec3 col = vec3(0.004, 0.003, 0.012);
+  float ang = atan(p.y, p.x);
+  vec3 pal = palette(t * 0.055 + ang * 0.055 + uTime * 0.035 + r0 * 0.10);
+
+  col += pal * glow * (1.1 + uBass * 1.6 + uBoost * 0.8);
+
+  if (hit) {
+    float e = 0.0025;
+    vec3 n = normalize(vec3(
+      map(p + vec3(e, 0.0, 0.0)) - map(p - vec3(e, 0.0, 0.0)),
+      map(p + vec3(0.0, e, 0.0)) - map(p - vec3(0.0, e, 0.0)),
+      map(p + vec3(0.0, 0.0, e)) - map(p - vec3(0.0, 0.0, e))
+    ));
+    float fres = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 2.5);
+
+    float ringPlane = abs(mod(p.z + uTime * 2.0, 2.15) - 1.075);
+    float ringGlow = exp(-ringPlane * 30.0);
+    float ringPhase = fract((p.z + uTime * 2.0) / 2.15);
+    vec3 ringCol = palette(ringPhase * 0.9 + ang * 0.07 + uTime * 0.03);
+
+    vec3 pal = palette(t * 0.022 + ang * 0.03 + uTime * 0.02);
+    vec3 surf = pal * (0.018 + fres * 0.10);
+    surf += ringCol * ringGlow * (0.30 + ringGlow * 1.9);
+    surf += vec3(0.55, 0.72, 1.0) * fres * fres * 0.16;
+
+    col += surf * exp(-t * 0.045);
+  }
+
+  // expanding shockwave ring on click
+  float pd = length(uv - uPulsePos);
+  float shock = exp(-pow((pd - (1.0 - uPulse) * 0.95) * 8.0, 2.0)) * uPulse;
+  col += palette(uTime * 0.08 + 0.3) * shock * 1.3;
+
+  // hot core at the end of the tunnel
+  float core = exp(-r0 * 6.5);
+  col += palette(uTime * 0.05 + 0.55) * core * (0.30 + uBass * 0.45 + uBoost * 0.55 + uPulse * 0.7);
+
+  // warped stained glass at the tunnel mouth
+  float glass = pow(0.5 + 0.5 * cos(atan(uv.y, uv.x) * 8.0 + uTime * 0.3), 18.0);
+  col += palette(0.15 + uTime * 0.02) * glass * exp(-r0 * 2.6) * 0.05;
+
+  // deep frame vignette
+  col *= 0.28 + 0.72 * (1.0 - smoothstep(0.22, 1.12, r0));
+
+  // grain-ish dither to kill banding
+  col += (hash12(gl_FragCoord.xy + fract(uTime) * 17.0) - 0.5) * 0.006;
+
+  oColor = vec4(col, 1.0);
+}`;
+
+  let gl = null;
+  let prog = null;
+  let w = 1, h = 1;
+  let boost = 0;
+  let lastBass = 0, lastPulse = 0, lastEnergy = 0, lastTime = 0;
+  let px = 0, py = 0;
+  let pulseU = 0.5, pulseV = 0.5;
+
+  const scene = {
+    meta: {
+      id: 'tunnel', title: 'WARP', cn: '曲速',
+      sub: 'RAYMARCHED NEON SDF · 8-FOLD',
+      accent: '#ffb657', accent2: '#ff4fd8', bloom: 0.9,
+    },
+
+    init: function (glCtx) {
+      gl = glCtx;
+      prog = U.program(gl, U.fullscreenVS, FRAG);
+    },
+
+    resize: function (nw, nh) { w = nw; h = nh; },
+
+    update: function (dt, t, input) {
+      lastTime = t;
+      lastBass = input.audio.bass;
+      lastPulse = input.pulse;
+      lastEnergy = input.energy;
+      px = input.nx;
+      py = input.ny;
+      pulseU = input.pulseU * 2 - 1;
+      pulseV = input.pulseV * 2 - 1;
+      if (input.wheel) boost = Math.min(1, boost + Math.abs(input.wheel) * 0.004);
+      boost *= Math.exp(-Math.max(0, dt) * 1.2);
+      if (input.pulse > 0.6) boost = Math.min(1, boost + 0.3);
+    },
+
+    render: function () {
+      gl.useProgram(prog);
+      U.u2f(gl, prog, 'uRes', w, h);
+      U.u1f(gl, prog, 'uTime', lastTime);
+      U.u1f(gl, prog, 'uBass', lastBass);
+      U.u1f(gl, prog, 'uPulse', lastPulse);
+      U.u1f(gl, prog, 'uEnergy', lastEnergy);
+      U.u2f(gl, prog, 'uPointer', px, py);
+      U.u1f(gl, prog, 'uBoost', boost);
+      U.u2f(gl, prog, 'uPulsePos', pulseU, pulseV);
+      U.quad(gl);
+    },
+
+    onReseed: function () { lastTime += 137.0; },
+
+    stats: '76-STEP SDF · 8-FOLD NEON RINGS',
+  };
+
+  window.NEB.scenes.tunnel = scene;
+})();
+
+</script>
+<script>
+/* STARFALL · Scene 03 — INK
+ * Semi-Lagrangian dye advection through a curl-ish flow field.
+ * Coloured ink is continuously injected and stirred by the pointer. */
+(function () {
+  'use strict';
+  const U = window.NEB.util;
+  const SIM = 512;
+  const SUBSTEPS = 2;
+
+  const ADVECT_FS = `#version 300 es
+precision highp float;
+
+uniform sampler2D uDye;
+uniform vec2 uTexel;
+uniform float uTime;
+uniform float uDt;
+uniform vec2 uMouse;
+uniform float uBrush;
+uniform vec2 uM1;
+uniform vec2 uM2;
+uniform vec2 uM3;
+uniform float uInject;
+uniform vec2 uPulsePos;
+uniform float uPulse;
+
+in vec2 vUv;
+out vec4 oColor;
+
+vec2 flow(vec2 p, float t) {
+  vec2 v = vec2(0.0);
+  v += vec2(sin(p.y * 2.6 + t * 0.23), cos(p.x * 2.3 - t * 0.19)) * 0.42;
+  v += vec2(sin(p.y * 5.4 - t * 0.37 + p.x * 1.4), cos(p.x * 4.9 + t * 0.29 - p.y * 1.2)) * 0.20;
+  v += vec2(cos(p.y * 9.1 + t * 0.51), sin(p.x * 8.3 - t * 0.43)) * 0.07;
+  vec2 d = p - 0.5;
+  v += vec2(-d.y, d.x) * 0.55;
+  vec2 m = p - uMouse;
+  float md = exp(-dot(m, m) * 26.0);
+  v += vec2(-m.y, m.x) * md * 2.4;
+  v += m * md * 0.7;
+  if (uPulse > 0.001) {
+    vec2 pd = p - uPulsePos;
+    float dl = length(pd) + 1e-4;
+    v += (pd / dl) * uPulse * exp(-dot(pd, pd) * 18.0) * 5.0;
+  }
+  return v;
+}
+
+vec3 inject(vec3 col, vec2 p, vec2 center, vec3 ink, float strength) {
+  vec2 d = p - center;
+  float f = exp(-dot(d, d) * 3800.0) * strength;
+  return mix(col, ink, clamp(f, 0.0, 1.0));
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec2 vel = flow(uv, uTime);
+  vec2 back = uv - vel * uDt * 0.38;
+
+  // semi-Lagrangian advection with a little diffusion
+  vec2 o = uTexel * 1.1;
+  vec3 c = texture(uDye, back).rgb * 0.52;
+  c += texture(uDye, back + vec2(o.x, 0.0)).rgb * 0.12;
+  c += texture(uDye, back - vec2(o.x, 0.0)).rgb * 0.12;
+  c += texture(uDye, back + vec2(0.0, o.y)).rgb * 0.12;
+  c += texture(uDye, back - vec2(0.0, o.y)).rgb * 0.12;
+  c *= 0.9945;
+
+  // continuous moving ink sources
+  c = inject(c, uv, uM1, vec3(0.03, 0.95, 0.70), uInject);
+  c = inject(c, uv, uM2, vec3(1.05, 0.08, 0.70), uInject);
+  c = inject(c, uv, uM3, vec3(1.05, 0.66, 0.20), uInject * 0.9);
+
+  // pointer brush
+  if (uBrush > 0.0) {
+    vec2 d = uv - uMouse;
+    float bf = exp(-dot(d, d) * 2600.0) * uBrush * 1.4;
+    c = mix(c, vec3(0.55, 0.95, 1.20), clamp(bf, 0.0, 1.0));
+  }
+
+  // click shock ring
+  if (uPulse > 0.01) {
+    float pd = length(uv - uPulsePos);
+    float ring = exp(-pow(pd - (1.0 - uPulse) * 0.55, 2.0) * 500.0) * uPulse;
+    c = mix(c, vec3(0.9, 1.10, 1.40), clamp(ring * 0.8, 0.0, 1.0));
+  }
+
+  oColor = vec4(min(c, vec3(4.0)), 1.0);
+}`;
+
+  const DISPLAY_FRAG = `#version 300 es
+precision highp float;
+
+uniform sampler2D uDye;
+uniform vec2 uTexel;
+uniform float uTime;
+uniform float uBass;
+uniform float uPulse;
+uniform vec2 uPulsePos;
+
+in vec2 vUv;
+out vec4 oColor;
+
+float hash12(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+
+void main() {
+  vec2 uv = vUv;
+  vec3 dyeRaw = texture(uDye, uv).rgb;
+  vec3 dye = max(dyeRaw - 0.028, vec3(0.0)) * 1.18;
+
+  // membrane edge highlight
+  vec2 o = uTexel * 2.2;
+  float br = dot(texture(uDye, uv + vec2(o.x, 0.0)).rgb, vec3(0.33))
+           + dot(texture(uDye, uv - vec2(o.x, 0.0)).rgb, vec3(0.33))
+           + dot(texture(uDye, uv + vec2(0.0, o.y)).rgb, vec3(0.33))
+           + dot(texture(uDye, uv - vec2(0.0, o.y)).rgb, vec3(0.33));
+  float lum = dot(dye, vec3(0.33));
+  float edge = max(0.0, lum - br * 0.25);
+
+  vec3 col = vec3(0.008, 0.014, 0.026);
+  col += dye;
+  col += vec3(0.35, 0.85, 1.0) * edge * 0.55;
+  col += dye * dye * 0.16;
+
+  // deep ink caustics
+  float haze = 0.5 + 0.5 * sin(uv.x * 7.0 + uTime * 0.21) * cos(uv.y * 6.0 - uTime * 0.17);
+  col += vec3(0.010, 0.030, 0.042) * haze * (0.5 + uBass * 0.7);
+
+  // subtle scan shimmer through the ink
+  float shimmer = pow(0.5 + 0.5 * sin(lum * 55.0 + uTime * 2.6), 16.0);
+  col += vec3(0.4, 0.95, 0.8) * shimmer * 0.20;
+
+  // click bloom
+  float pd = length(uv - uPulsePos);
+  col += vec3(0.6, 1.0, 1.2) * exp(-pd * 9.0) * uPulse * 0.7;
+
+  // vignette
+  vec2 d = uv - 0.5;
+  col *= 0.30 + 0.70 * (1.0 - smoothstep(0.26, 0.74, length(d)));
+
+  col += (hash12(gl_FragCoord.xy + fract(uTime) * 11.0) - 0.5) * 0.006;
+
+  oColor = vec4(col, 1.0);
+}`;
+
+  let gl = null;
+  let advectProg = null;
+  let dispProg = null;
+  let dye = null;
+  let w = 1, h = 1;
+  let lastTime = 0, lastBass = 0, lastPulse = 0;
+  let pulseU = 0.5, pulseV = 0.5;
+  let down = 0, mouseU = 0.5, mouseV = 0.5;
+  let seed = 20260101;
+
+  function rand() {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  }
+
+  function clearDye() {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dye.read.fbo);
+    gl.viewport(0, 0, SIM, SIM);
+    U.clear(gl, 0, 0, 0, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dye.write.fbo);
+    U.clear(gl, 0, 0, 0, 1);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  const scene = {
+    meta: {
+      id: 'fluid', title: 'INK', cn: '墨',
+      sub: 'CURL-FLOW DYE · SEMI-LAGRANGIAN',
+      accent: '#3dffb5', accent2: '#ffd166', bloom: 1.1,
+    },
+
+    init: function (glCtx) {
+      gl = glCtx;
+      if (!U.hdr.floatRenderable) {
+        this.meta.sub = 'FLOAT RENDER TARGETS UNAVAILABLE';
+        return;
+      }
+      advectProg = U.program(gl, U.fullscreenVS, ADVECT_FS);
+      dispProg = U.program(gl, U.fullscreenVS, DISPLAY_FRAG);
+      dye = U.pingpong(gl, SIM, SIM, {
+        internalFormat: gl.RGBA16F,
+        type: gl.HALF_FLOAT,
+        filter: gl.LINEAR,
+      });
+      clearDye();
+    },
+
+    resize: function (nw, nh) { w = nw; h = nh; },
+
+    update: function (dt, t, input) {
+      lastTime = t;
+      lastBass = input.audio.bass;
+      lastPulse = input.pulse;
+      pulseU = input.pulseU;
+      pulseV = input.pulseV;
+      down = input.down ? 1 : 0;
+      mouseU = input.u;
+      mouseV = input.v;
+      if (!dye || dt <= 0) return;
+
+      const m1x = 0.5 + 0.36 * Math.sin(t * 0.19);
+      const m1y = 0.5 + 0.32 * Math.cos(t * 0.23);
+      const m2x = 0.5 + 0.38 * Math.cos(t * 0.15 + 2.1);
+      const m2y = 0.5 + 0.35 * Math.sin(t * 0.17 + 1.2);
+      const m3x = 0.5 + 0.34 * Math.sin(t * 0.12 + 4.3);
+      const m3y = 0.5 + 0.36 * Math.cos(t * 0.21 + 3.0);
+
+      for (let i = 0; i < SUBSTEPS; i++) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, dye.write.fbo);
+        gl.viewport(0, 0, SIM, SIM);
+        gl.disable(gl.BLEND);
+        gl.useProgram(advectProg);
+        U.setTex(gl, 0, dye.read.tex);
+        gl.uniform1i(U.loc(gl, advectProg, 'uDye'), 0);
+        U.u2f(gl, advectProg, 'uTexel', 1 / SIM, 1 / SIM);
+        U.u1f(gl, advectProg, 'uTime', t);
+        U.u1f(gl, advectProg, 'uDt', Math.min(dt / SUBSTEPS, 0.05));
+        U.u2f(gl, advectProg, 'uMouse', mouseU, mouseV);
+        U.u1f(gl, advectProg, 'uBrush', down ? 0.35 : 0.0);
+        U.u2f(gl, advectProg, 'uM1', m1x, m1y);
+        U.u2f(gl, advectProg, 'uM2', m2x, m2y);
+        U.u2f(gl, advectProg, 'uM3', m3x, m3y);
+        U.u1f(gl, advectProg, 'uInject', 0.27 + input.energy * 0.10 + lastBass * 0.08);
+        U.u2f(gl, advectProg, 'uPulsePos', pulseU, pulseV);
+        U.u1f(gl, advectProg, 'uPulse', lastPulse);
+        U.quad(gl);
+        dye.swap();
+      }
+    },
+
+    render: function () {
+      if (!dye) {
+        gl.clearColor(0.01, 0.02, 0.03, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        return;
+      }
+      gl.useProgram(dispProg);
+      U.setTex(gl, 0, dye.read.tex);
+      gl.uniform1i(U.loc(gl, dispProg, 'uDye'), 0);
+      U.u2f(gl, dispProg, 'uTexel', 1 / SIM, 1 / SIM);
+      U.u1f(gl, dispProg, 'uTime', lastTime);
+      U.u1f(gl, dispProg, 'uBass', lastBass);
+      U.u1f(gl, dispProg, 'uPulse', lastPulse);
+      U.u2f(gl, dispProg, 'uPulsePos', pulseU, pulseV);
+      U.quad(gl);
+    },
+
+    onReseed: function () {
+      if (dye) clearDye();
+    },
+
+    stats: 'CURL FLOW · 512² DYE · 3 INK SOURCES',
+  };
+
+  window.NEB.scenes.fluid = scene;
+})();
+
+</script>
+<script>
+/* STARFALL · generative ambient audio — fully synthesised, no samples.
+ * A slow chord pad, sub drone, breathing noise, pentatonic bells and a soft
+ * pulse. Exposes smoothed frequency-band levels for the visuals. */
+(function () {
+  'use strict';
+  const NEB = (window.NEB = window.NEB || {});
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+
+  const CHORDS = [
+    [110.00, 130.81, 164.81, 220.00, 261.63], // Am
+    [87.31, 110.00, 130.81, 174.61, 220.00],   // F
+    [130.81, 164.81, 196.00, 261.63, 329.63],  // C
+    [98.00, 123.47, 146.83, 196.00, 246.94],   // G
+  ];
+  const PENTA = [220.0, 246.94, 261.63, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+
+  const levels = { bass: 0, mid: 0, treble: 0, level: 0 };
+  const zeros = { bass: 0, mid: 0, treble: 0, level: 0 };
+
+  let ctx = null;
+  let master = null;
+  let comp = null;
+  let analyser = null;
+  let reverb = null;
+  let reverbSend = null;
+  let delay = null;
+  let delaySend = null;
+  let padBus = null;
+  let bellBus = null;
+  let padVoices = [];
+  let subOsc = null;
+  let subGain = null;
+  let noiseGain = null;
+  let freqData = null;
+  let timeData = null;
+  let built = false;
+  let chordIndex = 0;
+  let chordTimer = 0;
+  let bellTimer = 0;
+  let pulseTimer = 0;
+  let active = false;
+  let seed = 7331;
+
+  function rnd() {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  }
+
+  function buildImpulse(seconds, decay) {
+    const rate = ctx.sampleRate;
+    const len = Math.floor(rate * seconds);
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        data[i] = (rnd() * 2 - 1) * Math.pow(1 - t, decay) * (i < rate * 0.01 ? 0.2 : 1);
+      }
+    }
+    return buf;
+  }
+
+  function makeNoiseBuffer(seconds) {
+    const rate = ctx.sampleRate;
+    const len = Math.floor(rate * seconds);
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      let b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < len; i++) {
+        const w = rnd() * 2 - 1;
+        b0 = 0.99765 * b0 + w * 0.0990460;
+        b1 = 0.96300 * b1 + w * 0.2965164;
+        b2 = 0.57000 * b2 + w * 1.0526913;
+        data[i] = (b0 + b1 + b2 + w * 0.1848) * 0.12;
+      }
+    }
+    return buf;
+  }
+
+  function makeOsc(type, freq, detune) {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    if (detune) o.detune.value = detune;
+    return o;
+  }
+
+  function init() {
+    if (built || !AudioCtx) return;
+    ctx = new AudioCtx();
+    master = ctx.createGain();
+    master.gain.value = 0.0001;
+
+    comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -20;
+    comp.knee.value = 24;
+    comp.ratio.value = 4;
+    comp.attack.value = 0.01;
+    comp.release.value = 0.32;
+
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.82;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.fftSize);
+
+    master.connect(comp);
+    comp.connect(analyser);
+    comp.connect(ctx.destination);
+
+    // reverb
+    reverb = ctx.createConvolver();
+    reverb.buffer = buildImpulse(2.6, 2.2);
+    reverbSend = ctx.createGain();
+    reverbSend.gain.value = 0.5;
+    reverbSend.connect(reverb);
+    reverb.connect(master);
+
+    // ping-pong-ish delay
+    delay = ctx.createDelay(1.0);
+    delay.delayTime.value = 0.42;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.34;
+    const delayWet = ctx.createGain();
+    delayWet.gain.value = 0.28;
+    delay.connect(fb);
+    fb.connect(delay);
+    delay.connect(delayWet);
+    delayWet.connect(master);
+    delaySend = ctx.createGain();
+    delaySend.gain.value = 0.30;
+    delaySend.connect(delay);
+
+    // pad bus
+    padBus = ctx.createGain();
+    padBus.gain.value = 0.16;
+    padBus.connect(master);
+    padBus.connect(reverbSend);
+
+    // slow filter opening
+    const padFilter = ctx.createBiquadFilter();
+    padFilter.type = 'lowpass';
+    padFilter.frequency.value = 760;
+    padFilter.Q.value = 0.6;
+    padFilter.connect(padBus);
+
+    const lfo = makeOsc('sine', 0.037, 0);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 340;
+    lfo.connect(lfoGain);
+    lfoGain.connect(padFilter.frequency);
+    lfo.start();
+
+    // four detuned pad voices (root, fifth, octave, ninth colour)
+    const ratios = [1.0, 1.4983, 2.0, 2.9975];
+    for (let i = 0; i < ratios.length; i++) {
+      const g = ctx.createGain();
+      g.gain.value = [0.16, 0.10, 0.07, 0.045][i];
+      const o1 = makeOsc(i === 3 ? 'triangle' : 'sawtooth', 110 * ratios[i], -4);
+      const o2 = makeOsc('sawtooth', 110 * ratios[i], 5);
+      o1.connect(g);
+      o2.connect(g);
+      g.connect(padFilter);
+      o1.start();
+      o2.start();
+      padVoices.push({ o1: o1, o2: o2, ratio: ratios[i], gain: g });
+    }
+
+    // sub drone
+    subGain = ctx.createGain();
+    subGain.gain.value = 0.16;
+    const subFilter = ctx.createBiquadFilter();
+    subFilter.type = 'lowpass';
+    subFilter.frequency.value = 120;
+    subOsc = makeOsc('sine', 55, 0);
+    subOsc.connect(subFilter);
+    subFilter.connect(subGain);
+    subGain.connect(master);
+    subGain.connect(reverbSend);
+    subOsc.start();
+
+    const subLfo = makeOsc('sine', 0.061, 0);
+    const subLfoGain = ctx.createGain();
+    subLfoGain.gain.value = 0.07;
+    subLfo.connect(subLfoGain);
+    subLfoGain.connect(subGain.gain);
+    subLfo.start();
+
+    // breathing filtered noise
+    const noise = ctx.createBufferSource();
+    noise.buffer = makeNoiseBuffer(4.0);
+    noise.loop = true;
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'bandpass';
+    noiseFilter.frequency.value = 1400;
+    noiseFilter.Q.value = 0.7;
+    noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.05;
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(master);
+    noiseGain.connect(reverbSend);
+    noise.start();
+
+    const noiseLfo = makeOsc('sine', 0.043, 0);
+    const noiseLfoGain = ctx.createGain();
+    noiseLfoGain.gain.value = 0.035;
+    noiseLfo.connect(noiseLfoGain);
+    noiseLfoGain.connect(noiseGain.gain);
+    noiseLfo.start();
+
+    // bells bus
+    bellBus = ctx.createGain();
+    bellBus.gain.value = 0.9;
+    bellBus.connect(master);
+    bellBus.connect(reverbSend);
+    bellBus.connect(delaySend);
+
+    built = true;
+    scheduleChord();
+  }
+
+  function setChord() {
+    if (!ctx || !padVoices.length) return;
+    const chord = CHORDS[chordIndex % CHORDS.length];
+    const now = ctx.currentTime;
+    padVoices.forEach(function (v, i) {
+      v.o1.frequency.setTargetAtTime(chord[Math.min(i, 3)] * v.ratio, now, 2.4);
+      v.o2.frequency.setTargetAtTime(chord[Math.min(i, 3)] * v.ratio, now, 2.4);
+      v.gain.gain.setTargetAtTime([0.16, 0.10, 0.07, 0.045][i] * (0.8 + Math.random() * 0.4), now, 2.0);
+    });
+    if (subOsc) subOsc.frequency.setTargetAtTime(chord[0] * 0.5, now, 2.4);
+    chordIndex++;
+  }
+
+  function scheduleChord() {
+    clearTimeout(chordTimer);
+    chordTimer = setTimeout(function () {
+      setChord();
+      scheduleChord();
+    }, 13000 + Math.random() * 5000);
+  }
+
+  function scheduleBell() {
+    clearTimeout(bellTimer);
+    const wait = 2600 + Math.random() * 4200;
+    bellTimer = setTimeout(function () {
+      playBell();
+      scheduleBell();
+    }, wait);
+  }
+
+  function playBell() {
+    if (!ctx || !active) return;
+    const now = ctx.currentTime;
+    const freq = PENTA[Math.floor(Math.random() * PENTA.length)] * (Math.random() < 0.3 ? 0.5 : 1);
+    const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (pan) pan.pan.value = Math.random() * 1.6 - 0.8;
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.10 + Math.random() * 0.08, now + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 2.2 + Math.random() * 2.2);
+
+    const o = makeOsc('sine', freq, 0);
+    const o2 = makeOsc('sine', freq * 2.001, 0);
+    const g2 = ctx.createGain();
+    g2.gain.value = 0.25;
+    o.connect(g);
+    o2.connect(g2);
+    g2.connect(g);
+    const out = pan || ctx.createGain();
+    g.connect(out);
+    if (pan) pan.connect(bellBus);
+    else out.connect(bellBus);
+
+    o.start(now);
+    o2.start(now);
+    o.stop(now + 4.6);
+    o2.stop(now + 4.6);
+  }
+
+  function playPulse() {
+    if (!ctx || !active) return;
+    const now = ctx.currentTime;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.20, now + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    const o = makeOsc('sine', 96, 0);
+    o.frequency.setValueAtTime(96, now);
+    o.frequency.exponentialRampToValueAtTime(42, now + 0.22);
+    o.connect(g);
+    g.connect(master);
+    o.start(now);
+    o.stop(now + 0.6);
+  }
+
+  function schedulePulse() {
+    clearTimeout(pulseTimer);
+    const wait = 2400 + Math.random() * 2200;
+    pulseTimer = setTimeout(function () {
+      playPulse();
+      schedulePulse();
+    }, wait);
+  }
+
+  function startTimers() {
+    clearTimeout(bellTimer);
+    clearTimeout(pulseTimer);
+    scheduleBell();
+    schedulePulse();
+  }
+
+  function stopTimers() {
+    clearTimeout(bellTimer);
+    clearTimeout(pulseTimer);
+    bellTimer = 0;
+    pulseTimer = 0;
+  }
+
+  function readLevels() {
+    if (!analyser || !active) {
+      levels.bass *= 0.9;
+      levels.mid *= 0.9;
+      levels.treble *= 0.9;
+      levels.level *= 0.9;
+      return levels;
+    }
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
+
+    const rate = ctx.sampleRate;
+    const bins = freqData.length;
+    const binHz = rate / 2 / bins;
+    let bass = 0, mid = 0, treble = 0;
+    let bassN = 0, midN = 0, trebleN = 0;
+    for (let i = 1; i < bins; i++) {
+      const f = i * binHz;
+      const v = freqData[i] / 255;
+      if (f < 160) { bass += v; bassN++; }
+      else if (f < 1600) { mid += v; midN++; }
+      else if (f < 9000) { treble += v; trebleN++; }
+    }
+    let sum = 0;
+    for (let i = 0; i < timeData.length; i++) {
+      const d = (timeData[i] - 128) / 128;
+      sum += d * d;
+    }
+    const rms = Math.sqrt(sum / timeData.length);
+
+    const targets = {
+      bass: bassN ? bass / bassN : 0,
+      mid: midN ? mid / midN : 0,
+      treble: trebleN ? treble / trebleN : 0,
+      level: Math.min(1, rms * 3.2),
+    };
+    const keys = ['bass', 'mid', 'treble', 'level'];
+    for (let i = 0; i < keys.length; i++) {
+      const k = keys[i];
+      const target = targets[k];
+      const ema = target > levels[k] ? 0.55 : 0.12;
+      levels[k] += (target - levels[k]) * ema;
+    }
+    return levels;
+  }
+
+  NEB.Audio = {
+    get on() { return active; },
+    ready: !!AudioCtx,
+
+    async toggle() {
+      try {
+        if (!AudioCtx) return false;
+        if (!built) init();
+        if (!ctx) return false;
+        if (active) {
+          active = false;
+          stopTimers();
+          clearTimeout(chordTimer);
+          master.gain.cancelScheduledValues(ctx.currentTime);
+          master.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.28);
+          return false;
+        }
+        if (ctx.state === 'suspended') await ctx.resume();
+        active = true;
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setTargetAtTime(0.22, ctx.currentTime, 0.5);
+        setChord();
+        scheduleChord();
+        startTimers();
+        return true;
+      } catch (err) {
+        console.warn('[STARFALL] audio unavailable:', err);
+        active = false;
+        return false;
+      }
+    },
+
+    sample() {
+      if (!active) return zeros;
+      return readLevels();
+    },
+
+    dispose() {
+      try {
+        stopTimers();
+        clearTimeout(chordTimer);
+        if (ctx) ctx.close();
+      } catch (err) { /* noop */ }
+      ctx = null;
+      built = false;
+      active = false;
+    },
+  };
+})();
+
+</script>
+<script>
+/* STARFALL · main loop, HUD wiring, scene orchestration */
+(function () {
+  'use strict';
+
+  const NEB = (window.NEB = window.NEB || {});
+  const U = NEB.util;
+  const canvas = document.getElementById('gl');
+  const bootEl = document.getElementById('boot');
+  const bootBar = document.getElementById('boot-bar');
+  const bootStatus = document.getElementById('boot-status');
+  const pickerEl = document.getElementById('picker');
+  const fpsEl = document.getElementById('fps');
+  const scaleEl = document.getElementById('scale');
+  const sceneIdEl = document.getElementById('scene-id');
+  const detailEl = document.getElementById('detail');
+  const audioBtn = document.getElementById('audio');
+  const audioLbl = audioBtn.querySelector('.audio-lbl');
+  const pausedEl = document.getElementById('paused');
+  const toastEl = document.getElementById('toast');
+  const hudEl = document.getElementById('hud');
+
+  // ---------- GL context ----------
+  const gl = canvas.getContext('webgl2', {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    stencil: false,
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: false,
+    desynchronized: true,
+  });
+
+  if (!gl) {
+    showFatal('当前浏览器不支持 WebGL2 · 无法启动星坠引擎');
+    return;
+  }
+  U.init(gl);
+  NEB.gl = gl;
+  NEB.view = { w: 0, h: 0 };
+
+  // ---------- state ----------
+  const state = {
+    cssW: 0, cssH: 0, dpr: 1, scale: 1,
+    targetW: 2, targetH: 2,
+    time: 0, last: performance.now(), paused: false,
+    fade: 0, fadeTarget: 1, pendingScene: null,
+    ready: false, bootDone: false, bootStart: performance.now(),
+    lost: false, sampleReq: null,
+    autoT: 0, idle: false,
+    fps: 60, lowTime: 0, perfClock: 0,
+  };
+
+  const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const qs = new URLSearchParams(location.search);
+  state.adaptive = qs.get('adaptive') !== '0';
+  const forcedScale = parseFloat(qs.get('scale'));
+  if (isFinite(forcedScale) && forcedScale > 0) state.scale = U.clamp(forcedScale, 0.4, 1);
+  const audioLevels = { bass: 0, mid: 0, treble: 0, level: 0 };
+  const pointer = {
+    u: 0.5, v: 0.5, tx: 0.5, ty: 0.5, down: false,
+    lastMove: -1e9, pulse: 0, pulseU: 0.5, pulseV: 0.5, wheel: 0,
+    prevU: 0.5, prevV: 0.5,
+  };
+  const input = {
+    nx: 0, ny: 0, u: 0.5, v: 0.5, px: 0, py: 0,
+    vx: 0, vy: 0, down: false,
+    pulse: 0, pulseU: 0.5, pulseV: 0.5,
+    wheel: 0, energy: 0, idle: false,
+    reducedMotion: reducedMotion,
+    audio: audioLevels,
+  };
+
+  let sceneTarget = null;
+  let post = null;
+  let entries = [];
+  let current = null;
+  let currentIndex = -1;
+  let resizeQueued = false;
+  let toastTimer = 0;
+
+  // offscreen canvas used by the debug sampler
+  const sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = 96;
+  sampleCanvas.height = 54;
+  const sampleCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+
+  // ---------- HUD helpers ----------
+  function toast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, ms || 2600);
+  }
+
+  function showFatal(msg) {
+    if (bootEl) {
+      bootEl.classList.remove('gone');
+      const st = bootEl.querySelector('.status');
+      if (st) st.textContent = msg;
+      const bar = bootEl.querySelector('.bar i');
+      if (bar) { bar.style.width = '100%'; bar.style.background = '#ff4d6d'; }
+    }
+    document.documentElement.style.setProperty('--accent', '#ff4d6d');
+  }
+
+  function applyAccent(meta) {
+    const root = document.documentElement;
+    root.style.setProperty('--accent', meta.accent || '#7df9ff');
+    root.style.setProperty('--accent2', meta.accent2 || '#ff4fd8');
+    document.body.dataset.scene = meta.id || '';
+  }
+
+  function updatePicker() {
+    entries.forEach(function (entry, i) {
+      if (!entry.btn) return;
+      const active = i === currentIndex;
+      entry.btn.classList.toggle('active', active);
+      if (active) entry.btn.setAttribute('aria-current', 'true');
+      else entry.btn.removeAttribute('aria-current');
+    });
+  }
+
+  function sceneDetail() {
+    if (!current) return '—';
+    let s = current.stats;
+    try { s = typeof s === 'function' ? s() : s; } catch (e) { s = '—'; }
+    return s || '—';
+  }
+
+  function refreshSceneLabels() {
+    if (!current) return;
+    applyAccent(current.meta);
+    sceneIdEl.textContent = (current.meta.cn || '') + ' / ' + current.meta.title;
+    detailEl.textContent = sceneDetail();
+    updatePicker();
+  }
+
+  // ---------- scene registry ----------
+  function collectScenes() {
+    const ids = Object.keys(NEB.scenes);
+    entries = ids
+      .map(function (id) { return NEB.scenes[id]; })
+      .filter(function (s) { return s && s.meta && s.meta.id && s.meta.hidden !== true; })
+      .map(function (s) {
+        return { scene: s, inited: false, failed: false, btn: null };
+      });
+  }
+
+  function activate(index) {
+    const entry = entries[index];
+    if (!entry) return false;
+    if (entry.scene === current) { currentIndex = index; refreshSceneLabels(); return true; }
+    try {
+      if (!entry.inited) {
+        entry.scene.init(gl, state.targetW, state.targetH);
+        entry.inited = true;
+      }
+      entry.scene.resize(state.targetW, state.targetH);
+      if (current && typeof current.onDeactivate === 'function') current.onDeactivate();
+      current = entry.scene;
+      currentIndex = index;
+      if (typeof current.onActivate === 'function') current.onActivate();
+      refreshSceneLabels();
+      return true;
+    } catch (err) {
+      entry.failed = true;
+      entry.inited = false;
+      console.error('[STARFALL] 场景初始化失败:', entry.scene.meta.id, err);
+      toast('场景「' + (entry.scene.meta.cn || entry.scene.meta.title) + '」初始化失败');
+      return false;
+    }
+  }
+
+  function requestScene(index) {
+    if (!entries[index] || entries[index].failed) return;
+    if (index === currentIndex && state.pendingScene === null) return;
+    if (!state.bootDone) return;
+    state.pendingScene = index;
+    state.fadeTarget = 0;
+  }
+
+  function switchSceneByKey(key) {
+    if (!key) return false;
+    const byId = entries.findIndex(function (e) { return e.scene.meta.id === key; });
+    if (byId >= 0) { requestScene(byId); return true; }
+    const n = parseInt(key, 10);
+    if (!isNaN(n) && n >= 1 && n <= entries.length) { requestScene(n - 1); return true; }
+    return false;
+  }
+
+  // ---------- canvas sizing ----------
+  function sizeCanvas() {
+    const cw = Math.max(320, window.innerWidth);
+    const ch = Math.max(240, window.innerHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    const bw = Math.round(cw * dpr);
+    const bh = Math.round(ch * dpr);
+    canvas.width = bw;
+    canvas.height = bh;
+    canvas.style.width = cw + 'px';
+    canvas.style.height = ch + 'px';
+    state.cssW = cw; state.cssH = ch; state.dpr = dpr;
+
+    const scale = state.scale;
+    let tw = Math.max(2, Math.round(bw * scale));
+    let th = Math.max(2, Math.round(bh * scale));
+    const cap = 4.4e6;
+    const px = tw * th;
+    if (px > cap) {
+      const k = Math.sqrt(cap / px);
+      tw = Math.max(2, Math.round(tw * k));
+      th = Math.max(2, Math.round(th * k));
+    }
+    state.targetW = tw; state.targetH = th;
+    NEB.view.w = tw; NEB.view.h = th;
+  }
+
+  function resize() {
+    sizeCanvas();
+    if (!sceneTarget) {
+      sceneTarget = U.target(gl, state.targetW, state.targetH, { filter: gl.LINEAR });
+      post = new NEB.Post(gl, state.targetW, state.targetH);
+    } else {
+      sceneTarget.resize(state.targetW, state.targetH);
+      post.resize(state.targetW, state.targetH);
+    }
+    if (current) {
+      try { current.resize(state.targetW, state.targetH); }
+      catch (err) { console.error('[STARFALL] 场景 resize 失败:', err); }
+    }
+    if (scaleEl) scaleEl.textContent = Math.round(state.scale * 100) + '%';
+    updateAudioLevels();
+  }
+
+  function queueResize() {
+    if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(function () {
+      resizeQueued = false;
+      resize();
+    });
+  }
+
+  window.addEventListener('resize', queueResize);
+
+  // ---------- pointer input ----------
+  function pointToUv(x, y) {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    return {
+      u: U.clamp((x - rect.left) / rect.width, 0, 1),
+      v: U.clamp(1 - (y - rect.top) / rect.height, 0, 1),
+    };
+  }
+
+  window.addEventListener('pointermove', function (e) {
+    const uv = pointToUv(e.clientX, e.clientY);
+    if (!uv) return;
+    pointer.tx = uv.u; pointer.ty = uv.v;
+    pointer.lastMove = performance.now();
+    if (pointer.down) { pointer.pulseU = uv.u; pointer.pulseV = uv.v; }
+  }, { passive: true });
+
+  canvas.addEventListener('pointerdown', function (e) {
+    const uv = pointToUv(e.clientX, e.clientY);
+    pointer.down = true;
+    if (uv) {
+      pointer.tx = uv.u; pointer.ty = uv.v;
+      pointer.pulseU = uv.u; pointer.pulseV = uv.v;
+    }
+    pointer.pulse = 1;
+    pointer.lastMove = performance.now();
+    if (e.pointerId !== undefined && canvas.setPointerCapture) {
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* noop */ }
+    }
+  });
+
+  window.addEventListener('pointerup', function () { pointer.down = false; });
+  window.addEventListener('pointercancel', function () { pointer.down = false; });
+  window.addEventListener('blur', function () { pointer.down = false; });
+
+  canvas.addEventListener('wheel', function (e) {
+    pointer.wheel += e.deltaY;
+    pointer.lastMove = performance.now();
+    e.preventDefault();
+  }, { passive: false });
+
+  // ---------- keyboard ----------
+  window.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (k === ' ') {
+      e.preventDefault();
+      setPaused(!state.paused);
+      return;
+    }
+    if (k === 'h' || k === 'H') { document.body.classList.toggle('hide-hud'); return; }
+    if (k === 'f' || k === 'F') { toggleFullscreen(); return; }
+    if (k === 'm' || k === 'M') { toggleAudio(); return; }
+    if (k === 'r' || k === 'R') {
+      if (current && typeof current.onReseed === 'function') {
+        current.onReseed();
+        toast('已重新播种 · RESEED');
+      }
+      return;
+    }
+    if (k >= '1' && k <= '9') { switchSceneByKey(k); return; }
+  });
+
+  function setPaused(v) {
+    state.paused = !!v;
+    state.last = performance.now();
+    pausedEl.hidden = !state.paused;
+    document.body.classList.toggle('paused', state.paused);
+  }
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(function () {});
+    } else if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(function () { toast('全屏被浏览器拒绝'); });
+    }
+  }
+
+  // ---------- audio ----------
+  function updateAudioLevels() {
+    let s = null;
+    if (NEB.Audio && NEB.Audio.on && typeof NEB.Audio.sample === 'function') {
+      try { s = NEB.Audio.sample(); } catch (err) { s = null; }
+    }
+    audioLevels.bass = s && s.bass || 0;
+    audioLevels.mid = s && s.mid || 0;
+    audioLevels.treble = s && s.treble || 0;
+    audioLevels.level = s && s.level || 0;
+  }
+
+  async function toggleAudio() {
+    if (!NEB.Audio || typeof NEB.Audio.toggle !== 'function' || NEB.Audio.ready === false) {
+      toast('该环境不支持氛围音频');
+      return false;
+    }
+    try {
+      const on = await NEB.Audio.toggle();
+      audioBtn.classList.toggle('on', !!on);
+      audioBtn.setAttribute('aria-pressed', String(!!on));
+      audioLbl.textContent = on ? 'AMBIENT · ON' : 'AMBIENT · OFF';
+      toast(on ? '氛围音频已开启 · 画面将随声而动' : '氛围音频已关闭');
+      return !!on;
+    } catch (err) {
+      console.error('[STARFALL] audio toggle failed:', err);
+      toast('音频启动失败');
+      return false;
+    }
+  }
+  audioBtn.addEventListener('click', function () { toggleAudio(); });
+
+  // ---------- HUD build ----------
+  function buildPicker() {
+    pickerEl.innerHTML = '';
+    entries.forEach(function (entry, i) {
+      const meta = entry.scene.meta;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pill';
+      btn.innerHTML =
+        '<span class="n">' + String(i + 1).padStart(2, '0') + '</span>' +
+        '<span class="t">' + meta.title + '</span>' +
+        '<span class="cn">' + (meta.cn || '') + '</span>';
+      btn.addEventListener('click', function () { requestScene(i); });
+      pickerEl.appendChild(btn);
+      entry.btn = btn;
+    });
+  }
+
+  // ---------- debug sampler ----------
+  function computeSample() {
+    try {
+      sampleCtx.drawImage(canvas, 0, 0, sampleCanvas.width, sampleCanvas.height);
+      const data = sampleCtx.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height).data;
+      const n = data.length / 4;
+      const ci = (Math.floor(sampleCanvas.height / 2) * sampleCanvas.width + Math.floor(sampleCanvas.width / 2)) * 4;
+      const center = (0.2126 * data[ci] + 0.7152 * data[ci + 1] + 0.0722 * data[ci + 2]) / 255;
+      let sum = 0, max = 0, nonBlack = 0, r = 0, g = 0, b = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const lum = (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255;
+        sum += lum;
+        if (lum > max) max = lum;
+        if (lum > 0.03) nonBlack++;
+        r += data[i]; g += data[i + 1]; b += data[i + 2];
+      }
+      return {
+        avg: sum / n,
+        max: max,
+        center: center,
+        nonBlack: nonBlack / n,
+        avgRGB: [r / n / 255, g / n / 255, b / n / 255],
+      };
+    } catch (err) {
+      return { error: String(err) };
+    }
+  }
+
+  // ---------- boot overlay ----------
+  const BOOT_STEPS = [
+    'BOOTING WEBGL2 CONTEXT…',
+    'COMPILING SHADERS…',
+    'ALLOCATING GPU BUFFERS…',
+    'CALIBRATING BLOOM & TONEMAP…',
+  ];
+  const BOOT_MIN_MS = 1250;
+
+  function updateBootUI() {
+    if (state.bootDone) return;
+    const elapsed = performance.now() - state.bootStart;
+    if (!state.ready) {
+      const step = Math.min(BOOT_STEPS.length - 1, Math.floor(elapsed / 300));
+      bootStatus.textContent = BOOT_STEPS[step];
+      bootBar.style.width = Math.min(84, 8 + elapsed / 18) + '%';
+    } else {
+      bootStatus.textContent = 'LINK ESTABLISHED · 沙盒就绪';
+      bootBar.style.width = '100%';
+      if (elapsed > BOOT_MIN_MS) finishBoot();
+    }
+  }
+
+  function finishBoot() {
+    if (state.bootDone) return;
+    state.bootDone = true;
+    bootEl.classList.add('gone');
+    setTimeout(function () {
+      if (bootEl.parentNode) bootEl.style.display = 'none';
+    }, 900);
+    NEB.ready = true;
+    updatePicker();
+  }
+
+  // ---------- frame loop ----------
+  function frame(now) {
+    requestAnimationFrame(frame);
+
+    const rdt = Math.min(0.1, Math.max(0, (now - state.last) / 1000));
+    state.last = now;
+
+    updateBootUI();
+    if (!sceneTarget) { return; }
+
+    const dt = state.paused ? 0 : Math.min(0.05, rdt);
+    if (!state.paused) state.time += dt;
+    const t = state.time;
+
+    // --- fade between scenes ---
+    if (state.pendingScene !== null) {
+      state.fade += (0 - state.fade) * Math.min(1, rdt * 13);
+      if (state.fade < 0.05) {
+        const target = state.pendingScene;
+        state.pendingScene = null;
+        const ok = activate(target);
+        if (!ok) toast('场景切换失败，保持当前场景');
+        state.fadeTarget = 1;
+        state.fade = 0;
+      }
+    } else {
+      state.fade += (state.fadeTarget - state.fade) * Math.min(1, rdt * 5.5);
+    }
+
+    // --- pointer smoothing / idle drift ---
+    const nowMs = now;
+    state.idle = (nowMs - pointer.lastMove) > 3200;
+    let tU = pointer.tx, tV = pointer.ty;
+    if (state.idle) {
+      state.autoT += rdt * 0.22;
+      const at = state.autoT;
+      tU = 0.5 + Math.sin(at * 0.9) * 0.30 + Math.sin(at * 0.37 + 1.3) * 0.12;
+      tV = 0.5 + Math.cos(at * 0.71) * 0.26 + Math.cos(at * 0.23 + 2.1) * 0.10;
+    }
+    const smoothK = 1 - Math.exp(-rdt * 2.8);
+    pointer.u += (tU - pointer.u) * smoothK;
+    pointer.v += (tV - pointer.v) * smoothK;
+    const prevU = pointer.prevU, prevV = pointer.prevV;
+    pointer.prevU = pointer.u; pointer.prevV = pointer.v;
+
+    pointer.pulse *= Math.exp(-rdt * 3.4);
+    input.u = pointer.u;
+    input.v = pointer.v;
+    input.nx = pointer.u * 2 - 1;
+    input.ny = pointer.v * 2 - 1;
+    input.px = pointer.u * state.targetW;
+    input.py = pointer.v * state.targetH;
+    input.vx = rdt > 0 ? U.clamp((pointer.u - prevU) / rdt, -5, 5) : 0;
+    input.vy = rdt > 0 ? U.clamp((pointer.v - prevV) / rdt, -5, 5) : 0;
+    input.down = pointer.down;
+    input.pulse = U.clamp(pointer.pulse, 0, 1);
+    input.pulseU = pointer.pulseU;
+    input.pulseV = pointer.pulseV;
+    input.wheel = pointer.wheel;
+    input.idle = state.idle;
+    const energyTarget = U.clamp(
+      Math.hypot(input.vx, input.vy) * 0.55 + input.pulse * 0.65 + audioLevels.level * 0.45,
+      0, 1
+    );
+    input.energy += (energyTarget - input.energy) * (1 - Math.exp(-rdt * 6));
+
+    updateAudioLevels();
+
+    // --- simulate ---
+    if (current) {
+      try {
+        if (!state.paused) current.update(dt, t, input);
+      } catch (err) {
+        console.error('[STARFALL] update 异常:', err);
+      }
+
+      // --- render into HDR target ---
+      gl.bindFramebuffer(gl.FRAMEBUFFER, sceneTarget.fbo);
+      gl.viewport(0, 0, sceneTarget.w, sceneTarget.h);
+      gl.disable(gl.BLEND);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.CULL_FACE);
+      U.clear(gl, 0, 0, 0, 1);
+      try {
+        current.render(t);
+      } catch (err) {
+        console.error('[STARFALL] render 异常:', err);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        U.clear(gl, 0.02, 0, 0.03, 1);
+      }
+
+      // --- post ---
+      const meta = current.meta;
+      if (state.fade > 0.001) {
+        try {
+          post.render(sceneTarget.tex, {
+            sceneW: sceneTarget.w,
+            sceneH: sceneTarget.h,
+            time: t,
+            fade: U.clamp(state.fade, 0, 1),
+            bloom: (meta.bloom === undefined ? 1 : meta.bloom) * (1 + audioLevels.bass * 0.45),
+            exposure: meta.exposure === undefined ? 1 : meta.exposure,
+            threshold: meta.threshold,
+            aberration: 0.0014 + input.energy * 0.0012,
+            grain: 0.012,
+            vignette: 0.62,
+            bass: audioLevels.bass,
+          });
+        } catch (err) {
+          console.error('[STARFALL] post 异常:', err);
+        }
+      }
+
+      // optional GPU sync for benchmarking
+      if (window.__NEB_BENCH__) gl.finish();
+
+      // debug pixel stats at end of frame
+      if (state.sampleReq) {
+        const sample = computeSample();
+        const cb = state.sampleReq;
+        state.sampleReq = null;
+        cb(sample);
+      }
+    }
+
+    // reset per-frame wheel
+    input.wheel = 0;
+    pointer.wheel = 0;
+
+    // --- fps / adaptive quality ---
+    if (rdt > 0) {
+      const inst = 1 / rdt;
+      state.fps = state.fps * 0.92 + Math.min(240, inst) * 0.08;
+    }
+    if (state.adaptive && state.ready && !state.paused) {
+      if (state.fps < 47) state.lowTime += rdt;
+      else state.lowTime = Math.max(0, state.lowTime - rdt * 0.6);
+      if (state.lowTime > 2.5 && state.scale > 0.6) {
+        state.scale = Math.max(0.6, state.scale - 0.15);
+        state.lowTime = 0;
+        resize();
+        toast('自适应画质 · RENDER ' + Math.round(state.scale * 100) + '%');
+      }
+    }
+
+    // --- HUD telemetry (throttled) ---
+    state.perfClock += rdt;
+    if (state.perfClock > 0.2) {
+      state.perfClock = 0;
+      fpsEl.textContent = String(Math.round(state.fps));
+      scaleEl.textContent = Math.round(state.scale * 100) + '%';
+      if (current) detailEl.textContent = sceneDetail();
+    }
+
+    // first successful frame
+    if (!state.ready && current) state.ready = true;
+  }
+
+  // ---------- boot ----------
+  if (qs.get('hud') === '0') document.body.classList.add('hide-hud');
+  if (qs.get('paused') === '1') setPaused(true);
+  collectScenes();
+  sizeCanvas();
+  sceneTarget = U.target(gl, state.targetW, state.targetH, { filter: gl.LINEAR });
+  post = new NEB.Post(gl, state.targetW, state.targetH);
+  buildPicker();
+
+  if (!entries.length) {
+    showFatal('没有加载到任何场景模块');
+  } else {
+    let started = false;
+    for (let i = 0; i < entries.length; i++) {
+      if (activate(i)) { started = true; break; }
+    }
+    if (!started) {
+      showFatal('所有场景初始化失败 · 查看控制台');
+    }
+  }
+  if (scaleEl) scaleEl.textContent = Math.round(state.scale * 100) + '%';
+
+  // ---------- context loss ----------
+  canvas.addEventListener('webglcontextlost', function (e) {
+    e.preventDefault();
+    state.lost = true;
+    toast('WebGL 上下文丢失 · 正在恢复…');
+  }, false);
+  canvas.addEventListener('webglcontextrestored', function () {
+    location.reload();
+  }, false);
+
+  document.addEventListener('visibilitychange', function () {
+    state.last = performance.now();
+    if (document.hidden) pointer.down = false;
+  });
+
+  // ---------- debug API ----------
+  window.__NEB_DEBUG = {
+    get ready() { return state.ready && state.bootDone; },
+    get fps() { return Math.round(state.fps); },
+    get sceneId() { return current ? current.meta.id : null; },
+    get glError() { return gl.getError(); },
+    get renderScale() { return state.scale; },
+    get paused() { return state.paused; },
+    get audioOn() { return !!(NEB.Audio && NEB.Audio.on); },
+    get hudVisible() { return !document.body.classList.contains('hide-hud'); },
+    scenes: function () {
+      return entries.map(function (e) {
+        return { id: e.scene.meta.id, title: e.scene.meta.title, inited: e.inited, failed: e.failed };
+      });
+    },
+    switchScene: function (key) { return switchSceneByKey(key); },
+    togglePause: function () { setPaused(!state.paused); return state.paused; },
+    toggleAudio: toggleAudio,
+    setScale: function (s) {
+      state.scale = U.clamp(Number(s) || 1, 0.4, 1);
+      resize();
+      return state.scale;
+    },
+    hud: function (show) { document.body.classList.toggle('hide-hud', show === false); },
+    sample: function () {
+      if (!state.ready) return Promise.resolve({ avg: 0, max: 0, nonBlack: 0, avgRGB: [0, 0, 0] });
+      return new Promise(function (resolve) { state.sampleReq = resolve; });
+    },
+    reseed: function () {
+      if (current && typeof current.onReseed === 'function') { current.onReseed(); return true; }
+      return false;
+    },
+  };
+  NEB.debug = window.__NEB_DEBUG;
+
+  requestAnimationFrame(function (t) {
+    state.last = t;
+    frame(t);
+  });
+})();
+
+</script>
+</body>
+</html>
